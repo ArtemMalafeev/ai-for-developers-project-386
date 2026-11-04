@@ -27,6 +27,7 @@ const services = [
 ]
 
 const processes = []
+const serviceTimeoutMs = 300_000
 
 function isPortOccupied(port) {
   return new Promise((resolve, reject) => {
@@ -67,7 +68,7 @@ function startService(service) {
 }
 
 async function waitForService(service, child) {
-  const deadline = Date.now() + 300_000
+  const deadline = Date.now() + serviceTimeoutMs
 
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
@@ -90,7 +91,9 @@ async function waitForService(service, child) {
     await sleep(500)
   }
 
-  throw new Error(`${service.name} did not become ready in 30 seconds`)
+  throw new Error(
+    `${service.name} did not become ready in ${serviceTimeoutMs / 1000} seconds`,
+  )
 }
 
 function cleanup() {
