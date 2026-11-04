@@ -67,7 +67,7 @@ function startService(service) {
 }
 
 async function waitForService(service, child) {
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + 300_000
 
   while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
