@@ -1,0 +1,24 @@
+[tools]
+hk = "2.11.0"
+node = "26.13.0"
+pnpm = "12.16.1"
+
+[tasks.dev]
+description = "Run frontend and backend in development mode"
+run = "pnpm dev"
+
+[tasks.lint]
+description = "Lint all workspace packages"
+run = "pnpm -r lint"
+
+[tasks.typecheck]
+description = "Type-check all workspace packages"
+run = "pnpm -r type-check"
+
+[tasks.smoke]
+description = "Run fullstack smoke tests"
+run = "node scripts/smoke.mjs"
+
+[tasks.check]
+description = "Run all project checks"
+depends = ["lint", "typecheck", "smoke"]
