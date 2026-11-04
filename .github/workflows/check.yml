@@ -2,25 +2,37 @@ name: Check
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   check:
-    name: Lint, typecheck and smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@v3
-        with:
-          install: true
-          cache: true
+        uses: jdx/mise-action@v5
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run checks
-        run: mise run check
+      - name: Validate hk configuration
+        run: mise exec -- hk validate
+
+      - name: Lint
+        run: mise run lint
+
+      - name: Typecheck
+        run: mise run typecheck
+
+      - name: Smoke test
+        run: mise run smoke
