@@ -81,3 +81,17 @@ pnpm --filter apps-api build
 
 - Коммит требует явного подтверждения пользователя. Push требует отдельного явного запроса. Разрешение в текущей сессии учитывается при следующих шагах той же работы.
 - Сообщение коммита пишется по Conventional Commits, описание на русском, в scope имя шаблона, например `fix(nodejs-package): убрать console.log`.
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спецификации хранятся в GitHub Issues; для работы используйте `gh`. См. `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Используются стандартные метки `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` и `wontfix`. См. `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Репозиторий использует структуру с одним контекстом (single-context): корневой `GLOSSARY.md` и общие ADR в `docs/adr/`. См. `docs/agents/domain.md`.
