@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/ArtemMalafeev/ai-for-developers-project-386/issues"
   },
-  "homepage": "https://github.com/ArtemMalafeev/ai-for-developers-project-386#readme"
+  "homepage": "https://github.com/ArtemMalafeev/ai-for-developers-project-386#readme",
+  "devDependencies": {
+    "shadcn-vue": "^2.9.0"
+  }
 }
