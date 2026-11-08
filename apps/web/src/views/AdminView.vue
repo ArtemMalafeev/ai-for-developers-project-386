@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { MeetingType } from '@calendar/api-client'
+import type { MeetingType } from 'calendar-api-client'
 
 import { api } from '@/lib/api'
 

@@ -1,12 +1,29 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { MeetingType } from '@calendar/api-client'
+import type { MeetingType, Slot } from 'calendar-api-client'
 
 import { api } from '@/lib/api'
 
 const meetingTypes = ref<MeetingType[]>([])
 const loading = ref(true)
 const error = ref('')
+const selectedType = ref<MeetingType>()
+const slots = ref<Slot[]>([])
+const slotsLoading = ref(false)
+
+const selectMeetingType = async (meetingType: MeetingType) => {
+  selectedType.value = meetingType
+  slotsLoading.value = true
+  error.value = ''
+  try {
+    slots.value = await api.listMeetingTypeSlots(meetingType.id)
+  } catch {
+    error.value = 'Не удалось загрузить свободные слоты.'
+    slots.value = []
+  } finally {
+    slotsLoading.value = false
+  }
+}
 
 onMounted(async () => {
   try {
@@ -33,10 +50,20 @@ onMounted(async () => {
           <h2>{{ meetingType.name }}</h2>
           <p v-if="meetingType.description">{{ meetingType.description }}</p>
           <span>{{ meetingType.durationMinutes }} минут</span>
-          <button type="button" class="button button-primary">Выбрать время</button>
+          <button type="button" class="button button-primary" @click="selectMeetingType(meetingType)">Выбрать время</button>
         </article>
       </div>
       <p v-else class="empty-state">Владелец пока не добавил типы встреч.</p>
+      <div v-if="selectedType" class="slot-panel" aria-live="polite">
+        <h2>Свободное время: {{ selectedType.name }}</h2>
+        <p v-if="slotsLoading">Загружаем слоты…</p>
+        <p v-else-if="!slots.length" class="empty-state">Свободных слотов пока нет.</p>
+        <ul v-else class="slot-list">
+          <li v-for="slot in slots" :key="slot.startAt">
+            {{ new Date(slot.startAt).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' }) }}
+          </li>
+        </ul>
+      </div>
     </template>
   </section>
 </template>

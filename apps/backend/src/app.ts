@@ -83,7 +83,7 @@ export const buildApp = (service = new CalendarService()): FastifyInstance => {
       })
       return reply.status(201).send(booking)
     }, reply),
-  })
+  )
 
   app.get('/api/owner/bookings', async (_request, reply) =>
     withCalendarErrors(() => service.listBookings(), reply),

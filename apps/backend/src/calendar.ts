@@ -98,6 +98,37 @@ export interface CalendarServiceOptions {
   workingHours?: { start: number; end: number }
 }
 
+const OWNER_TIME_ZONE = 'Europe/Moscow'
+
+const ownerParts = (value: Date) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: OWNER_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value)
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value)
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute'), second: get('second') }
+}
+
+const ownerDate = (year: number, month: number, day: number, hour: number, minute = 0) =>
+  `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+03:00`
+
+const ownerDayStart = (value: Date) => {
+  const parts = ownerParts(value)
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+}
+
+const normalizeInstant = (value: string) => {
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) return undefined
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
 export class CalendarService {
   private readonly store: CalendarStore
   private readonly now: () => Date
@@ -145,22 +176,24 @@ export class CalendarService {
 
   listSlots(meetingTypeId: string): readonly Slot[] {
     const meetingType = this.getMeetingType(meetingTypeId)
-    const start = this.startOfDay(this.now())
+    const start = ownerDayStart(this.now())
     const slots: Slot[] = []
     const step = meetingType.durationMinutes * 60_000
     for (let day = 0; day < 14; day += 1) {
       const date = new Date(start.getTime() + day * 86_400_000)
       if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue
-      const dayStart = new Date(date)
-      dayStart.setUTCHours(this.workingHours.start, 0, 0, 0)
-      const dayEnd = new Date(date)
-      dayEnd.setUTCHours(this.workingHours.end, 0, 0, 0)
-      for (let cursor = dayStart.getTime(); cursor + step <= dayEnd.getTime(); cursor += step) {
+      const year = date.getUTCFullYear()
+      const month = date.getUTCMonth() + 1
+      const dayOfMonth = date.getUTCDate()
+      const dayStart = new Date(ownerDate(year, month, dayOfMonth, this.workingHours.start)).getTime()
+      const dayEnd = new Date(ownerDate(year, month, dayOfMonth, this.workingHours.end)).getTime()
+      for (let cursor = dayStart; cursor + step <= dayEnd; cursor += step) {
         const slot = {
           startAt: new Date(cursor).toISOString(),
           endAt: new Date(cursor + step).toISOString(),
         }
-        if (!this.store.listBookings().some((booking) => booking.startAt === slot.startAt)) slots.push(slot)
+        if (cursor < this.now().getTime()) continue
+        if (!this.store.listBookings().some((booking) => new Date(booking.startAt).getTime() < cursor + step && new Date(booking.endAt).getTime() > cursor)) slots.push(slot)
       }
     }
     return slots
@@ -177,13 +210,13 @@ export class CalendarService {
     if (!input.idempotencyKey.trim()) throw new CalendarError('VALIDATION_ERROR', 400, 'Idempotency-Key is required.')
     const previous = this.store.findBookingByIdempotencyKey(input.idempotencyKey)
     if (previous) throw new CalendarError('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used.')
-    const start = new Date(input.startAt)
-    if (Number.isNaN(start.getTime()) || !input.guestName.trim() || !/^\S+@\S+\.\S+$/.test(input.guestEmail)) {
+    const start = normalizeInstant(input.startAt)
+    if (!start || !input.guestName.trim() || !/^\S+@\S+\.\S+$/.test(input.guestEmail)) {
       throw new CalendarError('VALIDATION_ERROR', 400, 'Booking details are invalid.')
     }
     const end = new Date(start.getTime() + meetingType.durationMinutes * 60_000)
-    const slot = this.listSlots(meetingType.id).find((candidate) => candidate.startAt === start.toISOString())
-    if (!slot || this.store.listBookings().some((booking) => booking.startAt === start.toISOString())) {
+    const slot = this.listSlots(meetingType.id).find((candidate) => new Date(candidate.startAt).getTime() === start.getTime())
+    if (!slot) {
       throw new CalendarError('SLOT_UNAVAILABLE', 409, 'The selected slot is unavailable.')
     }
     return this.store.addBooking(
@@ -203,9 +236,4 @@ export class CalendarService {
     return Object.freeze([...this.store.listBookings()].sort((left, right) => left.startAt.localeCompare(right.startAt)))
   }
 
-  private startOfDay(value: Date): Date {
-    const date = new Date(value)
-    date.setUTCHours(0, 0, 0, 0)
-    return date
-  }
 }
