@@ -245,7 +245,12 @@ export class CalendarService {
   }
 
   listBookings(): readonly Booking[] {
-    return Object.freeze([...this.store.listBookings()].sort((left, right) => left.startAt.localeCompare(right.startAt)))
+    const now = this.now().getTime()
+    return Object.freeze(
+      [...this.store.listBookings()]
+        .filter((booking) => new Date(booking.startAt).getTime() >= now)
+        .sort((left, right) => left.startAt.localeCompare(right.startAt)),
+    )
   }
 
 }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import type { MeetingType } from 'calendar-api-client'
+import type { Booking, MeetingType } from 'calendar-api-client'
 
 import { api } from '@/lib/api'
 
 const meetingTypes = ref<MeetingType[]>([])
+const bookings = ref<Booking[]>([])
 const name = ref('')
 const durationMinutes = ref(30)
 const description = ref('')
@@ -13,7 +14,9 @@ const saving = ref(false)
 
 const loadMeetingTypes = async () => {
   try {
-    meetingTypes.value = await api.listMeetingTypes()
+    const [types, upcoming] = await Promise.all([api.listMeetingTypes(), api.listOwnerBookings()])
+    meetingTypes.value = types
+    bookings.value = upcoming
   } catch {
     error.value = 'Не удалось загрузить типы встреч.'
   }
@@ -64,5 +67,16 @@ onMounted(loadMeetingTypes)
         <span>{{ meetingType.durationMinutes }} минут</span>
       </article>
     </div>
+    <section class="booking-list" aria-label="Предстоящие записи">
+      <h2>Предстоящие записи</h2>
+      <p v-if="!bookings.length" class="empty-state">Предстоящих записей нет.</p>
+      <ul v-else>
+        <li v-for="booking in bookings" :key="booking.id">
+          <strong>{{ booking.meetingType.name }}</strong>
+          <span>{{ new Date(booking.startAt).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' }) }}</span>
+          <span>{{ booking.guestName }} · {{ booking.guestEmail }}</span>
+        </li>
+      </ul>
+    </section>
   </section>
 </template>
