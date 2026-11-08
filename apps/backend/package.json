@@ -11,7 +11,8 @@
     "lint": "pnpm run lint:oxlint && pnpm run lint:eslint",
     "lint:oxlint": "oxlint .",
     "lint:eslint": "eslint .",
-    "lint:fix": "oxlint . --fix && eslint . --fix"
+    "lint:fix": "oxlint . --fix && eslint . --fix",
+    "test": "vitest run"
   },
   "dependencies": {
     "fastify": "^5.12.8"
@@ -23,6 +24,7 @@
     "oxlint": "^1.91.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.1"
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.1.0"
   }
 }
