@@ -15,10 +15,14 @@ run = "pnpm -r lint"
 description = "Type-check all workspace packages"
 run = "pnpm -r type-check"
 
+[tasks.test]
+description = "Run frontend tests"
+run = "pnpm --filter apps-web test:run"
+
 [tasks.smoke]
 description = "Run fullstack smoke tests"
 run = "node scripts/smoke.mjs"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["lint", "typecheck", "smoke"]
+depends = ["lint", "typecheck", "test", "smoke"]
