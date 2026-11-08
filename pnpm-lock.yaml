@@ -39,9 +39,15 @@ importers:
       typescript-eslint:
         specifier: ^8.72.1
         version: 8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(stylus@0.57.0(supports-color@7.2.0))(tsx@4.23.15))
 
   apps/web:
     dependencies:
+      '@calendar/api-client':
+        specifier: workspace:*
+        version: link:../packages/api-client
       '@lucide/vue':
         specifier: ^1.70.0
         version: 1.70.0(vue@3.5.44(typescript@6.0.3))

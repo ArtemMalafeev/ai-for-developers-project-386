@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import HomeView from '@/views/HomeView.vue'
-import PlaceholderView from '@/views/PlaceholderView.vue'
+import AdminView from '@/views/AdminView.vue'
+import BookingView from '@/views/BookingView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,24 +15,12 @@ const router = createRouter({
     {
       path: '/booking',
       name: 'booking',
-      component: PlaceholderView,
-      props: {
-        eyebrow: 'Для гостей',
-        title: 'Запись на звонок',
-        description:
-          'Здесь появится выбор типа встречи и свободного времени. Сейчас этот раздел готовится к запуску.',
-      },
+      component: BookingView,
     },
     {
       path: '/admin',
       name: 'admin',
-      component: PlaceholderView,
-      props: {
-        eyebrow: 'Для владельцев',
-        title: 'Админка',
-        description:
-          'Здесь можно будет создавать типы встреч, настраивать расписание и смотреть записи.',
-      },
+      component: AdminView,
     },
     {
       path: '/:pathMatch(.*)*',
