@@ -1,0 +1,10 @@
+kind: project
+entrypoint: src/main.tsp
+emit:
+  - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    output-file: openapi/openapi.yaml
+    file-type: yaml
+    openapi-versions:
+      - "3.1.0"

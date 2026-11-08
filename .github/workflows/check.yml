@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate and verify contracts
+        run: pnpm contracts:check
+
       - name: Validate hk configuration
         run: mise exec -- hk validate
 
