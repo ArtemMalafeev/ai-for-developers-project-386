@@ -1,0 +1,335 @@
+openapi: 3.1.0
+info:
+  title: Call Calendar API
+  version: 1.0.0
+  description: Contract for the call booking calendar.
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local API server
+tags:
+  - name: guest
+    description: Public guest operations
+  - name: owner
+    description: Owner operations
+paths:
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      tags: [guest]
+      summary: List meeting types
+      responses:
+        '200':
+          description: Available meeting types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+  /api/owner/meeting-types:
+    post:
+      operationId: createMeetingType
+      tags: [owner]
+      summary: Create a meeting type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
+      responses:
+        '201':
+          description: Meeting type created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/MeetingTypeNameTaken'
+        '422':
+          $ref: '#/components/responses/ValidationErrorUnprocessable'
+  /api/meeting-types/{meetingTypeId}/slots:
+    get:
+      operationId: listMeetingTypeSlots
+      tags: [guest]
+      summary: List available slots for the next 14 calendar days
+      parameters:
+        - $ref: '#/components/parameters/MeetingTypeId'
+      responses:
+        '200':
+          description: Available slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/MeetingTypeNotFound'
+  /api/bookings:
+    post:
+      operationId: createBooking
+      tags: [guest]
+      summary: Reserve an available slot
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/MeetingTypeNotFound'
+        '409':
+          description: Slot unavailable or idempotency key reused
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                slotUnavailable:
+                  $ref: '#/components/examples/SlotUnavailable'
+                idempotencyKeyReused:
+                  $ref: '#/components/examples/IdempotencyKeyReused'
+        '422':
+          $ref: '#/components/responses/ValidationErrorUnprocessable'
+  /api/owner/bookings:
+    get:
+      operationId: listOwnerBookings
+      tags: [owner]
+      summary: List upcoming bookings
+      responses:
+        '200':
+          description: Upcoming bookings sorted by start time
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+components:
+  parameters:
+    MeetingTypeId:
+      name: meetingTypeId
+      in: path
+      required: true
+      description: Meeting type identifier
+      schema:
+        type: string
+        minLength: 1
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client supplied key used to safely retry a booking request.
+      schema:
+        type: string
+        minLength: 1
+  responses:
+    ValidationError:
+      description: Request is invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            validation:
+              $ref: '#/components/examples/ValidationError'
+    ValidationErrorUnprocessable:
+      description: Request is semantically invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            validation:
+              $ref: '#/components/examples/ValidationError'
+    MeetingTypeNotFound:
+      description: Meeting type does not exist
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            notFound:
+              $ref: '#/components/examples/MeetingTypeNotFound'
+    MeetingTypeNameTaken:
+      description: Meeting type name is already used
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            nameTaken:
+              $ref: '#/components/examples/MeetingTypeNameTaken'
+  examples:
+    ValidationError:
+      value:
+        type: https://example.com/problems/validation-error
+        title: Validation error
+        status: 400
+        code: VALIDATION_ERROR
+        detail: Request body is invalid.
+    MeetingTypeNotFound:
+      value:
+        type: https://example.com/problems/meeting-type-not-found
+        title: Meeting type not found
+        status: 404
+        code: MEETING_TYPE_NOT_FOUND
+    MeetingTypeNameTaken:
+      value:
+        type: https://example.com/problems/meeting-type-name-taken
+        title: Meeting type name is taken
+        status: 409
+        code: MEETING_TYPE_NAME_TAKEN
+    SlotUnavailable:
+      value:
+        type: https://example.com/problems/slot-unavailable
+        title: Slot unavailable
+        status: 409
+        code: SLOT_UNAVAILABLE
+    IdempotencyKeyReused:
+      value:
+        type: https://example.com/problems/idempotency-key-reused
+        title: Idempotency key reused
+        status: 409
+        code: IDEMPOTENCY_KEY_REUSED
+  schemas:
+    MeetingType:
+      type: object
+      additionalProperties: false
+      required: [id, name, durationMinutes]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+    CreateMeetingTypeRequest:
+      type: object
+      additionalProperties: false
+      required: [name, durationMinutes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+    Slot:
+      type: object
+      additionalProperties: false
+      required: [startAt, endAt]
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+    MeetingTypeSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, name, durationMinutes]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+    CreateBookingRequest:
+      type: object
+      additionalProperties: false
+      required: [meetingTypeId, startAt, guestName, guestEmail]
+      properties:
+        meetingTypeId:
+          type: string
+          minLength: 1
+        startAt:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+          minLength: 1
+        guestEmail:
+          type: string
+          format: email
+    Booking:
+      type: object
+      additionalProperties: false
+      required: [id, meetingType, guestName, guestEmail, startAt, endAt]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        meetingType:
+          $ref: '#/components/schemas/MeetingTypeSnapshot'
+        guestName:
+          type: string
+          minLength: 1
+        guestEmail:
+          type: string
+          format: email
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+    ProblemCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - MEETING_TYPE_NOT_FOUND
+        - MEETING_TYPE_NAME_TAKEN
+        - SLOT_UNAVAILABLE
+        - IDEMPOTENCY_KEY_REUSED
+    ProblemDetails:
+      type: object
+      additionalProperties: true
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        code:
+          $ref: '#/components/schemas/ProblemCode'

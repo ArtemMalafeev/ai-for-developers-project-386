@@ -7,6 +7,10 @@ pnpm = "12.16.1"
 description = "Run frontend and backend in development mode"
 run = "pnpm dev"
 
+[tasks.contracts]
+description = "Generate and verify API contract artifacts"
+run = "pnpm contracts:check"
+
 [tasks.lint]
 description = "Lint all workspace packages"
 run = "pnpm -r lint"
@@ -25,4 +29,4 @@ run = "node scripts/smoke.mjs"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["lint", "typecheck", "test", "smoke"]
+depends = ["contracts", "lint", "typecheck", "test", "smoke"]

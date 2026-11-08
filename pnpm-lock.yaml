@@ -134,6 +134,17 @@ importers:
         specifier: ^3.3.11
         version: 3.3.14(typescript@6.0.3)
 
+  packages/api-client:
+    devDependencies:
+      oxlint:
+        specifier: ^1.91.0
+        version: 1.91.0
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/contracts: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':
