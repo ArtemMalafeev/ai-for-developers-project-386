@@ -133,6 +133,7 @@ export class CalendarService {
   private readonly store: CalendarStore
   private readonly now: () => Date
   private readonly workingHours: { start: number; end: number }
+  private readonly idempotencyPayloads = new Map<string, string>()
 
   constructor(options: CalendarServiceOptions = {}) {
     this.store = options.store ?? new InMemoryCalendarStore()
@@ -208,8 +209,17 @@ export class CalendarService {
   }): Booking {
     const meetingType = this.getMeetingType(input.meetingTypeId)
     if (!input.idempotencyKey.trim()) throw new CalendarError('VALIDATION_ERROR', 400, 'Idempotency-Key is required.')
+    const payloadFingerprint = JSON.stringify({
+      meetingTypeId: input.meetingTypeId,
+      startAt: input.startAt,
+      guestName: input.guestName.trim(),
+      guestEmail: input.guestEmail.trim().toLowerCase(),
+    })
     const previous = this.store.findBookingByIdempotencyKey(input.idempotencyKey)
-    if (previous) throw new CalendarError('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used.')
+    if (previous) {
+      if (this.idempotencyPayloads.get(input.idempotencyKey) === payloadFingerprint) return previous
+      throw new CalendarError('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used.')
+    }
     const start = normalizeInstant(input.startAt)
     if (!start || !input.guestName.trim() || !/^\S+@\S+\.\S+$/.test(input.guestEmail)) {
       throw new CalendarError('VALIDATION_ERROR', 400, 'Booking details are invalid.')
@@ -219,7 +229,7 @@ export class CalendarService {
     if (!slot) {
       throw new CalendarError('SLOT_UNAVAILABLE', 409, 'The selected slot is unavailable.')
     }
-    return this.store.addBooking(
+    const booking = this.store.addBooking(
       {
         id: randomUUID(),
         meetingType: immutable({ id: meetingType.id, name: meetingType.name, durationMinutes: meetingType.durationMinutes }),
@@ -230,6 +240,8 @@ export class CalendarService {
       },
       input.idempotencyKey,
     )
+    this.idempotencyPayloads.set(input.idempotencyKey, payloadFingerprint)
+    return booking
   }
 
   listBookings(): readonly Booking[] {
