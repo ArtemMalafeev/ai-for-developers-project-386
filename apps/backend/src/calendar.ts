@@ -138,6 +138,14 @@ const normalizeInstant = (value: string) => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
+const bookingFingerprint = (booking: Pick<Booking, 'meetingType' | 'startAt' | 'guestName' | 'guestEmail'>) =>
+  JSON.stringify({
+    meetingTypeId: booking.meetingType.id,
+    startAt: booking.startAt,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail.toLowerCase(),
+  })
+
 export class CalendarService {
   private readonly store: CalendarStore
   private readonly now: () => Date
@@ -193,8 +201,11 @@ export class CalendarService {
 
   listSlots(meetingTypeId: string): readonly Slot[] {
     const meetingType = this.getMeetingType(meetingTypeId)
-    const start = ownerDayStart(this.now())
+    const now = this.now()
+    const nowTime = now.getTime()
+    const start = ownerDayStart(now)
     const slots: Slot[] = []
+    const bookings = this.store.listBookings()
     const step = meetingType.durationMinutes * 60_000
     for (let day = 0; day < 14; day += 1) {
       const date = new Date(start.getTime() + day * 86_400_000)
@@ -203,15 +214,16 @@ export class CalendarService {
       const month = date.getUTCMonth() + 1
       const dayOfMonth = date.getUTCDate()
       for (const interval of intervals) {
+        if (!Number.isInteger(interval.start) || !Number.isInteger(interval.end) || interval.start < 0 || interval.end > 24 || interval.end <= interval.start) continue
         const dayStart = new Date(ownerDate(year, month, dayOfMonth, interval.start)).getTime()
         const dayEnd = new Date(ownerDate(year, month, dayOfMonth, interval.end)).getTime()
         for (let cursor = dayStart; cursor + step <= dayEnd; cursor += step) {
-        const slot = {
-          startAt: new Date(cursor).toISOString(),
-          endAt: new Date(cursor + step).toISOString(),
-        }
-          if (cursor < this.now().getTime()) continue
-          if (!this.store.listBookings().some((booking) => new Date(booking.startAt).getTime() < cursor + step && new Date(booking.endAt).getTime() > cursor)) slots.push(slot)
+          const slot = {
+            startAt: new Date(cursor).toISOString(),
+            endAt: new Date(cursor + step).toISOString(),
+          }
+          if (cursor < nowTime) continue
+          if (!bookings.some((booking) => new Date(booking.startAt).getTime() < cursor + step && new Date(booking.endAt).getTime() > cursor)) slots.push(slot)
         }
       }
     }
@@ -225,22 +237,25 @@ export class CalendarService {
     guestEmail: string
     idempotencyKey: string
   }): Booking {
-    const meetingType = this.getMeetingType(input.meetingTypeId)
     if (!input.idempotencyKey.trim()) throw new CalendarError('VALIDATION_ERROR', 400, 'Idempotency-Key is required.')
-    const payloadFingerprint = JSON.stringify({
-      meetingTypeId: input.meetingTypeId,
-      startAt: input.startAt,
-      guestName: input.guestName.trim(),
-      guestEmail: input.guestEmail.trim().toLowerCase(),
-    })
     const previous = this.store.findBookingByIdempotencyKey(input.idempotencyKey)
-    if (previous) {
-      if (this.idempotencyPayloads.get(input.idempotencyKey) === payloadFingerprint) return previous
-      throw new CalendarError('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used.')
-    }
     const start = normalizeInstant(input.startAt)
-    if (!start || !input.guestName.trim() || !/^\S+@\S+\.\S+$/.test(input.guestEmail)) {
+    const guestName = input.guestName.trim()
+    const guestEmail = input.guestEmail.trim()
+    if (!start || !guestName || !/^\S+@\S+\.\S+$/.test(guestEmail)) {
       throw new CalendarError('VALIDATION_ERROR', 400, 'Booking details are invalid.')
+    }
+    const meetingType = this.getMeetingType(input.meetingTypeId)
+    const canonicalPayloadFingerprint = JSON.stringify({
+      meetingTypeId: input.meetingTypeId,
+      startAt: start.toISOString(),
+      guestName,
+      guestEmail: guestEmail.toLowerCase(),
+    })
+    if (previous) {
+      const previousFingerprint = this.idempotencyPayloads.get(input.idempotencyKey) ?? bookingFingerprint(previous)
+      if (previousFingerprint === canonicalPayloadFingerprint) return previous
+      throw new CalendarError('IDEMPOTENCY_KEY_REUSED', 409, 'Idempotency key was already used.')
     }
     const end = new Date(start.getTime() + meetingType.durationMinutes * 60_000)
     const slot = this.listSlots(meetingType.id).find((candidate) => new Date(candidate.startAt).getTime() === start.getTime())
@@ -251,14 +266,14 @@ export class CalendarService {
       {
         id: randomUUID(),
         meetingType: immutable({ id: meetingType.id, name: meetingType.name, durationMinutes: meetingType.durationMinutes }),
-        guestName: input.guestName.trim(),
-        guestEmail: input.guestEmail.trim(),
+        guestName,
+        guestEmail,
         startAt: start.toISOString(),
         endAt: end.toISOString(),
       },
       input.idempotencyKey,
     )
-    this.idempotencyPayloads.set(input.idempotencyKey, payloadFingerprint)
+    this.idempotencyPayloads.set(input.idempotencyKey, canonicalPayloadFingerprint)
     return booking
   }
 

@@ -35,4 +35,59 @@ describe('calendar HTTP API', () => {
     expect(response.statusCode).toBe(409)
     expect(response.json().code).toBe('MEETING_TYPE_NAME_TAKEN')
   })
+
+  it('returns Problem Details for schema validation failures', async () => {
+    const app = buildApp(new CalendarService())
+    apps.push(app)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Созвон', durationMinutes: 30, unexpected: true },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.headers['content-type']).toContain('application/problem+json')
+    expect(response.json()).toMatchObject({
+      type: 'https://example.com/problems/validation-error',
+      status: 400,
+      code: 'VALIDATION_ERROR',
+    })
+  })
+
+  it('requires an idempotency key and validates booking fields before service logic', async () => {
+    const app = buildApp(new CalendarService())
+    apps.push(app)
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Созвон', durationMinutes: 30 },
+    })
+    const meetingType = createResponse.json()
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      payload: {
+        meetingTypeId: meetingType.id,
+        startAt: 'not-a-date',
+        guestName: 'Гость',
+        guestEmail: 'guest@example.com',
+      },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json().code).toBe('VALIDATION_ERROR')
+  })
+
+  it('returns a not-found Problem Details response for an unknown meeting type', async () => {
+    const app = buildApp(new CalendarService())
+    apps.push(app)
+
+    const response = await app.inject({ method: 'GET', url: '/api/meeting-types/unknown/slots' })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.headers['content-type']).toContain('application/problem+json')
+    expect(response.json()).toMatchObject({ status: 404, code: 'MEETING_TYPE_NOT_FOUND' })
+  })
 })
