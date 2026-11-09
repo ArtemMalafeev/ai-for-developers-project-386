@@ -68,8 +68,6 @@ const mergeHeaders = (...values: Array<HeadersInit | undefined>): Headers => {
 
 export const createApiClient = (options: ApiClientOptions = {}): CalendarApiClient => {
   const baseUrl = options.baseUrl ?? ''
-  const request = options.fetch ?? globalThis.fetch
-
   const send = async <T>(
     path: string,
     init: RequestInit = {},
@@ -81,6 +79,7 @@ export const createApiClient = (options: ApiClientOptions = {}): CalendarApiClie
       options.headers,
       requestOptions.headers,
     )
+    const request = options.fetch ?? globalThis.fetch
     const response = await request(joinUrl(baseUrl, path), {
       ...init,
       headers,
