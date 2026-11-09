@@ -104,6 +104,7 @@ export interface CalendarServiceOptions {
   store?: CalendarStore
   now?: () => Date
   workingHours?: { start: number; end: number }
+  weeklySchedule?: Partial<Record<number, Array<{ start: number; end: number }>>>
 }
 
 const OWNER_TIME_ZONE = 'Europe/Moscow'
@@ -141,12 +142,20 @@ export class CalendarService {
   private readonly store: CalendarStore
   private readonly now: () => Date
   private readonly workingHours: { start: number; end: number }
+  private readonly weeklySchedule: Partial<Record<number, Array<{ start: number; end: number }>>>
   private readonly idempotencyPayloads = new Map<string, string>()
 
   constructor(options: CalendarServiceOptions = {}) {
     this.store = options.store ?? new InMemoryCalendarStore()
     this.now = options.now ?? (() => new Date())
     this.workingHours = options.workingHours ?? { start: 9, end: 17 }
+    this.weeklySchedule = options.weeklySchedule ?? {
+      1: [this.workingHours],
+      2: [this.workingHours],
+      3: [this.workingHours],
+      4: [this.workingHours],
+      5: [this.workingHours],
+    }
   }
 
   createMeetingType(input: { name: string; durationMinutes: number; description?: string }): MeetingType {
@@ -189,19 +198,21 @@ export class CalendarService {
     const step = meetingType.durationMinutes * 60_000
     for (let day = 0; day < 14; day += 1) {
       const date = new Date(start.getTime() + day * 86_400_000)
-      if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue
+      const intervals = this.weeklySchedule[date.getUTCDay()] ?? []
       const year = date.getUTCFullYear()
       const month = date.getUTCMonth() + 1
       const dayOfMonth = date.getUTCDate()
-      const dayStart = new Date(ownerDate(year, month, dayOfMonth, this.workingHours.start)).getTime()
-      const dayEnd = new Date(ownerDate(year, month, dayOfMonth, this.workingHours.end)).getTime()
-      for (let cursor = dayStart; cursor + step <= dayEnd; cursor += step) {
+      for (const interval of intervals) {
+        const dayStart = new Date(ownerDate(year, month, dayOfMonth, interval.start)).getTime()
+        const dayEnd = new Date(ownerDate(year, month, dayOfMonth, interval.end)).getTime()
+        for (let cursor = dayStart; cursor + step <= dayEnd; cursor += step) {
         const slot = {
           startAt: new Date(cursor).toISOString(),
           endAt: new Date(cursor + step).toISOString(),
         }
-        if (cursor < this.now().getTime()) continue
-        if (!this.store.listBookings().some((booking) => new Date(booking.startAt).getTime() < cursor + step && new Date(booking.endAt).getTime() > cursor)) slots.push(slot)
+          if (cursor < this.now().getTime()) continue
+          if (!this.store.listBookings().some((booking) => new Date(booking.startAt).getTime() < cursor + step && new Date(booking.endAt).getTime() > cursor)) slots.push(slot)
+        }
       }
     }
     return slots
