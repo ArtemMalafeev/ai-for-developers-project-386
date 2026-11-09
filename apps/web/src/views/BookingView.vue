@@ -16,6 +16,7 @@ const guestEmail = ref('')
 const bookingError = ref('')
 const bookingConfirmation = ref('')
 const bookingLoading = ref(false)
+const idempotencyKey = ref('')
 
 const selectMeetingType = async (meetingType: MeetingType) => {
   selectedType.value = meetingType
@@ -37,6 +38,7 @@ const createBooking = async () => {
   if (!selectedType.value || !selectedSlot.value) return
   bookingLoading.value = true
   bookingError.value = ''
+  if (!idempotencyKey.value) idempotencyKey.value = crypto.randomUUID()
   try {
     const booking = await api.createBooking(
       {
@@ -45,12 +47,15 @@ const createBooking = async () => {
         guestName: guestName.value,
         guestEmail: guestEmail.value,
       },
-      crypto.randomUUID(),
+      idempotencyKey.value,
     )
-    bookingConfirmation.value = `Запись подтверждена: ${new Date(booking.startAt).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })}`
+    const start = new Date(booking.startAt).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Moscow' })
+    const end = new Date(booking.endAt).toLocaleString('ru-RU', { timeStyle: 'short', timeZone: 'Europe/Moscow' })
+    bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${start}–${end}`
     slots.value = slots.value.filter((slot) => slot.startAt !== booking.startAt)
     guestName.value = ''
     guestEmail.value = ''
+    idempotencyKey.value = ''
   } catch (cause) {
     bookingError.value = cause instanceof Error ? cause.message : 'Не удалось создать запись.'
   } finally {
