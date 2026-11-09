@@ -1,0 +1,224 @@
+openapi: 3.1.0
+info:
+  title: Call Calendar API
+  version: 0.0.0
+tags: []
+paths:
+  /api/bookings:
+    post:
+      operationId: GuestBookings_create
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Booking'
+                  - $ref: '#/components/schemas/ProblemDetails'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/meeting-types:
+    get:
+      operationId: GuestMeetingTypes_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+  /api/meeting-types/{meetingTypeId}/slots:
+    get:
+      operationId: GuestSlots_list
+      parameters:
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Slot'
+                  - $ref: '#/components/schemas/ProblemDetails'
+  /api/owner/bookings:
+    get:
+      operationId: OwnerBookings_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+  /api/owner/meeting-types:
+    post:
+      operationId: OwnerMeetingTypes_create
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/MeetingType'
+                  - $ref: '#/components/schemas/ProblemDetails'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
+components:
+  schemas:
+    Booking:
+      type: object
+      required:
+        - id
+        - meetingType
+        - guestName
+        - guestEmail
+        - startAt
+        - endAt
+      properties:
+        id:
+          type: string
+        meetingType:
+          $ref: '#/components/schemas/MeetingTypeSnapshot'
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - startAt
+        - guestName
+        - guestEmail
+      properties:
+        meetingTypeId:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+    CreateMeetingTypeRequest:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+        description:
+          type: string
+    MeetingType:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+        description:
+          type: string
+    MeetingTypeSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    ProblemCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - MEETING_TYPE_NOT_FOUND
+        - MEETING_TYPE_NAME_TAKEN
+        - SLOT_UNAVAILABLE
+        - IDEMPOTENCY_KEY_REUSED
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        code:
+          $ref: '#/components/schemas/ProblemCode'
+    Slot:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local API server
+    variables: {}

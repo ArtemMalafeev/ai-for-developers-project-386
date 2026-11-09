@@ -4,7 +4,7 @@ import "@typespec/rest";
 using TypeSpec.Http;
 using TypeSpec.Rest;
 
-@service({ title: "Call Calendar API", version: "1.0.0" })
+@service(#{ title: "Call Calendar API" })
 @server("http://127.0.0.1:3000", "Local API server")
 @route("/api")
 namespace CallCalendar;
