@@ -52,6 +52,7 @@ export interface CalendarStore {
   addBooking(booking: Booking, idempotencyKey: string): Booking
   listBookings(): readonly Booking[]
   findBookingByIdempotencyKey(idempotencyKey: string): Booking | undefined
+  hasMeetingTypeName?(normalizedName: string): boolean
 }
 
 const immutable = <T extends object>(value: T): Readonly<T> => Object.freeze(value)
@@ -59,12 +60,14 @@ const normalizeMeetingTypeName = (name: string) => name.replace(/\s+/g, '').toLo
 
 export class InMemoryCalendarStore implements CalendarStore {
   private readonly meetingTypes = new Map<string, MeetingType>()
+  private readonly meetingTypeNames = new Set<string>()
   private readonly bookings = new Map<string, Booking>()
   private readonly idempotencyKeys = new Map<string, string>()
 
   addMeetingType(meetingType: MeetingType): MeetingType {
     const stored = immutable({ ...meetingType })
     this.meetingTypes.set(stored.id, stored)
+    this.meetingTypeNames.add(normalizeMeetingTypeName(stored.name))
     return stored
   }
 
@@ -74,6 +77,10 @@ export class InMemoryCalendarStore implements CalendarStore {
 
   getMeetingType(id: string): MeetingType | undefined {
     return this.meetingTypes.get(id)
+  }
+
+  hasMeetingTypeName(normalizedName: string): boolean {
+    return this.meetingTypeNames.has(normalizedName)
   }
 
   addBooking(booking: Booking, idempotencyKey: string): Booking {
@@ -153,7 +160,7 @@ export class CalendarService {
       throw new CalendarError('VALIDATION_ERROR', 422, 'Meeting type details are invalid.')
     }
     const normalizedName = normalizeMeetingTypeName(name)
-    const duplicate = this.store.listMeetingTypes().some((meetingType) => normalizeMeetingTypeName(meetingType.name) === normalizedName)
+    const duplicate = this.store.hasMeetingTypeName?.(normalizedName) ?? this.store.listMeetingTypes().some((meetingType) => normalizeMeetingTypeName(meetingType.name) === normalizedName)
     if (duplicate) {
       throw new CalendarError('MEETING_TYPE_NAME_TAKEN', 409, 'A meeting type with this name already exists.')
     }
