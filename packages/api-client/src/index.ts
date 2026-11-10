@@ -1,3 +1,2 @@
-export * from './generated/openapi.js'
-export * from './client.js'
-export * from './types.js'
+export * from './generated/index.js'
+export { client } from './generated/client.gen.js'

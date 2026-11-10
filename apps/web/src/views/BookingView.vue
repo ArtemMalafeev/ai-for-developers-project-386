@@ -2,7 +2,13 @@
 import { CalendarDays, CheckCircle2, Clock3, Mail, UserRound } from '@lucide/vue'
 import { CalendarDate, type DateValue } from '@internationalized/date'
 import { computed, onMounted, ref, watch } from 'vue'
-import type { MeetingType, Slot } from 'calendar-api-client'
+import {
+  createBooking as createBookingRequest,
+  listMeetingTypeSlots,
+  listMeetingTypes,
+  type MeetingType,
+  type Slot,
+} from 'calendar-api-client'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +25,7 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { api } from '@/lib/api'
+import { responseData } from '@/lib/api'
 
 const OWNER_TIME_ZONE = 'Europe/Moscow'
 
@@ -105,7 +111,14 @@ const selectMeetingType = async (meetingType: MeetingType) => {
   slotsLoading.value = true
 
   try {
-    slots.value = [...(await api.listMeetingTypeSlots(meetingType.id))]
+    slots.value = [
+      ...(await responseData(
+        listMeetingTypeSlots({
+          path: { meetingTypeId: meetingType.id },
+          throwOnError: true,
+        }),
+      )),
+    ]
     selectedDate.value = slotDays.value[0]?.date
   } catch {
     slotsError.value = 'Не удалось загрузить свободные слоты.'
@@ -124,14 +137,17 @@ const createBooking = async () => {
   if (!idempotencyKey.value) idempotencyKey.value = crypto.randomUUID()
 
   try {
-    const booking = await api.createBooking(
-      {
-        meetingTypeId: selectedType.value.id,
-        startAt: selectedSlot.value.startAt,
-        guestName: guestName.value,
-        guestEmail: guestEmail.value,
-      },
-      idempotencyKey.value,
+    const booking = await responseData(
+      createBookingRequest({
+        body: {
+          meetingTypeId: selectedType.value.id,
+          startAt: selectedSlot.value.startAt,
+          guestName: guestName.value,
+          guestEmail: guestEmail.value,
+        },
+        headers: { 'Idempotency-Key': idempotencyKey.value },
+        throwOnError: true,
+      }),
     )
     bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${formatDate(booking.startAt)} в ${formatTime(booking.startAt)}.`
     slots.value = slots.value.filter((slot) => slot.startAt !== booking.startAt)
@@ -154,7 +170,7 @@ watch(selectedDate, () => {
 
 onMounted(async () => {
   try {
-    meetingTypes.value = [...(await api.listMeetingTypes())]
+    meetingTypes.value = [...(await responseData(listMeetingTypes({ throwOnError: true })))]
   } catch {
     typesError.value = 'Не удалось загрузить типы встреч.'
   } finally {

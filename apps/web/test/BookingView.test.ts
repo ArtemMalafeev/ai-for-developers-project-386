@@ -9,6 +9,9 @@ const response = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   })
 
+const requestUrl = (input: RequestInfo | URL) =>
+  input instanceof Request ? input.url : String(input)
+
 describe('страница записи', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -33,7 +36,7 @@ describe('страница записи', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
-        const url = String(input)
+        const url = requestUrl(input)
         if (url.endsWith('/api/meeting-types')) {
           return Promise.resolve(
             response([{ id: 'intro', name: 'Знакомство', durationMinutes: 30 }]),

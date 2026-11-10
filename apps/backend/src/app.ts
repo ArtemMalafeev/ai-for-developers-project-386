@@ -1,54 +1,15 @@
+import { fileURLToPath } from 'node:url'
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply } from 'fastify'
+import openapiGlue from 'fastify-openapi-glue'
+import Ajv2020Module from 'ajv/dist/2020.js'
+import addFormatsModule from 'ajv-formats'
 
 import { CalendarError, CalendarService } from './calendar.js'
+import type { RouteHandlers } from './generated/fastify.gen.js'
 
-interface MeetingTypeBody {
-  name?: unknown
-  durationMinutes?: unknown
-  description?: unknown
-}
-
-interface BookingBody {
-  meetingTypeId?: unknown
-  startAt?: unknown
-  guestName?: unknown
-  guestEmail?: unknown
-}
-
-const meetingTypeBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['name', 'durationMinutes'],
-  properties: {
-    name: { type: 'string', minLength: 1 },
-    durationMinutes: { type: 'integer', minimum: 5, multipleOf: 5 },
-    description: { type: 'string' },
-  },
-} as const
-
-const bookingBodySchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['meetingTypeId', 'startAt', 'guestName', 'guestEmail'],
-  properties: {
-    meetingTypeId: { type: 'string', minLength: 1 },
-    startAt: { type: 'string', format: 'date-time' },
-    guestName: { type: 'string', minLength: 1 },
-    guestEmail: { type: 'string', format: 'email' },
-  },
-} as const
-
-const meetingTypeParamsSchema = {
-  type: 'object',
-  required: ['meetingTypeId'],
-  properties: { meetingTypeId: { type: 'string', minLength: 1 } },
-} as const
-
-const idempotencyHeadersSchema = {
-  type: 'object',
-  required: ['idempotency-key'],
-  properties: { 'idempotency-key': { type: 'string', minLength: 1 } },
-} as const
+const specification = fileURLToPath(
+  new URL('../../../packages/contracts/openapi/openapi.yaml', import.meta.url),
+)
 
 const problem = (error: CalendarError, reply: FastifyReply) =>
   reply.status(error.status).type('application/problem+json').send({
@@ -64,19 +25,38 @@ const isValidationError = (error: unknown) => {
   return Boolean(candidate.validation) || candidate.code === 'FST_ERR_CTP_INVALID_JSON_BODY'
 }
 
-const withCalendarErrors = async (handler: () => unknown, reply: FastifyReply) => {
+const withCalendarErrors = async (handler: () => void, reply: FastifyReply): Promise<void> => {
   try {
-    return await handler()
+    handler()
   } catch (error) {
-    if (error instanceof CalendarError) return problem(error, reply)
+    if (error instanceof CalendarError) {
+      problem(error, reply)
+      return
+    }
     throw error
   }
 }
 
 export const buildApp = (service = new CalendarService()): FastifyInstance => {
-  const app = Fastify({
-    logger: true,
-    ajv: { customOptions: { removeAdditional: false } },
+  const app = Fastify({ logger: true })
+  app.addContentTypeParser(
+    'application/problem+json',
+    { parseAs: 'string' },
+    app.getDefaultJsonParser('error', 'error'),
+  )
+  const validator = new Ajv2020Module.default({ allErrors: true, coerceTypes: true, strict: false })
+  addFormatsModule.default(validator)
+  app.setValidatorCompiler(({ schema, httpPart }) => {
+    if (httpPart !== 'headers') return validator.compile(schema)
+    // Node lowercases HTTP headers, while OpenAPI preserves their declared spelling.
+    const headers = schema as { properties?: Record<string, unknown>; required?: string[] }
+    return validator.compile({
+      ...headers,
+      properties: Object.fromEntries(
+        Object.entries(headers.properties ?? {}).map(([name, value]) => [name.toLowerCase(), value]),
+      ),
+      ...(headers.required ? { required: headers.required.map((name) => name.toLowerCase()) } : {}),
+    })
   })
 
   app.setErrorHandler((error, _request, reply) => {
@@ -89,62 +69,36 @@ export const buildApp = (service = new CalendarService()): FastifyInstance => {
   app.get('/health', async () => ({ status: 'ok' }))
   app.get('/api/health', async () => ({ status: 'ok' }))
 
-  app.get('/api/meeting-types', async (_request, reply) =>
-    withCalendarErrors(() => service.listMeetingTypes(), reply),
-  )
+  const serviceHandlers = {
+    listMeetingTypes: async (_request, reply) => {
+      reply.code(200).send([...service.listMeetingTypes()])
+    },
+    listMeetingTypeSlots: async (request, reply) =>
+      withCalendarErrors(() => {
+        reply.code(200).send([...service.listSlots(request.params.meetingTypeId)])
+      }, reply),
+    listOwnerBookings: async (_request, reply) => {
+      reply.code(200).send([...service.listBookings()])
+    },
+    createMeetingType: async (request, reply) =>
+      withCalendarErrors(() => {
+        const meetingType = service.createMeetingType(request.body)
+        reply.status(201).send(meetingType)
+      }, reply),
+    createBooking: async (request, reply) =>
+      withCalendarErrors(() => {
+        const idempotencyKey = request.headers['idempotency-key']
+        if (typeof idempotencyKey !== 'string') {
+          throw new CalendarError('VALIDATION_ERROR', 400, 'Idempotency-Key is invalid.')
+        }
+        const booking = service.createBooking({
+          ...request.body,
+          idempotencyKey,
+        })
+        reply.status(201).send(booking)
+      }, reply),
+  } satisfies RouteHandlers
 
-  app.post<{ Body: MeetingTypeBody }>('/api/owner/meeting-types', {
-    schema: { body: meetingTypeBodySchema },
-  }, async (request, reply) =>
-    withCalendarErrors(() => {
-      const body = request.body ?? {}
-      if (typeof body.name !== 'string' || typeof body.durationMinutes !== 'number') {
-        return problem(new CalendarError('VALIDATION_ERROR', 400, 'Request body is invalid.'), reply)
-      }
-      const meetingType = service.createMeetingType({
-        name: body.name,
-        durationMinutes: body.durationMinutes,
-        ...(typeof body.description === 'string' ? { description: body.description } : {}),
-      })
-      return reply.status(201).send(meetingType)
-    }, reply),
-  )
-
-  app.get<{ Params: { meetingTypeId: string } }>('/api/meeting-types/:meetingTypeId/slots', {
-    schema: { params: meetingTypeParamsSchema },
-  }, async (request, reply) =>
-    withCalendarErrors(() => service.listSlots(request.params.meetingTypeId), reply),
-  )
-
-  app.post<{ Body: BookingBody }>('/api/bookings', {
-    schema: { body: bookingBodySchema, headers: idempotencyHeadersSchema },
-  }, async (request, reply) =>
-    withCalendarErrors(() => {
-      const body = request.body ?? {}
-      const idempotencyKey = request.headers['idempotency-key']
-      if (
-        typeof idempotencyKey !== 'string' ||
-        typeof body.meetingTypeId !== 'string' ||
-        typeof body.startAt !== 'string' ||
-        typeof body.guestName !== 'string' ||
-        typeof body.guestEmail !== 'string'
-      ) {
-        return problem(new CalendarError('VALIDATION_ERROR', 400, 'Request body is invalid.'), reply)
-      }
-      const booking = service.createBooking({
-        meetingTypeId: body.meetingTypeId,
-        startAt: body.startAt,
-        guestName: body.guestName,
-        guestEmail: body.guestEmail,
-        idempotencyKey,
-      })
-      return reply.status(201).send(booking)
-    }, reply),
-  )
-
-  app.get('/api/owner/bookings', async (_request, reply) =>
-    withCalendarErrors(() => service.listBookings(), reply),
-  )
-
+  app.register(openapiGlue, { specification, serviceHandlers })
   return app
 }

@@ -2,64 +2,90 @@ openapi: 3.1.0
 info:
   title: Call Calendar API
   version: 1.0.0
-  description: Contract for the call booking calendar.
-servers:
-  - url: http://127.0.0.1:3000
-    description: Local API server
 tags:
   - name: guest
-    description: Public guest operations
   - name: owner
-    description: Owner operations
 paths:
+  /api/bookings:
+    post:
+      operationId: createBooking
+      summary: Reserve an available slot
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - guest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
   /api/meeting-types:
     get:
       operationId: listMeetingTypes
-      tags: [guest]
       summary: List meeting types
+      parameters: []
       responses:
         '200':
-          description: Available meeting types
+          description: The request has succeeded.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/MeetingType'
-  /api/owner/meeting-types:
-    post:
-      operationId: createMeetingType
-      tags: [owner]
-      summary: Create a meeting type
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMeetingTypeRequest'
-      responses:
-        '201':
-          description: Meeting type created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MeetingType'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
-          $ref: '#/components/responses/MeetingTypeNameTaken'
-        '422':
-          $ref: '#/components/responses/ValidationErrorUnprocessable'
+      tags:
+        - guest
   /api/meeting-types/{meetingTypeId}/slots:
     get:
       operationId: listMeetingTypeSlots
-      tags: [guest]
       summary: List available slots for the next 14 calendar days
       parameters:
-        - $ref: '#/components/parameters/MeetingTypeId'
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
       responses:
         '200':
-          description: Available slots
+          description: The request has succeeded.
           content:
             application/json:
               schema:
@@ -67,229 +93,84 @@ paths:
                 items:
                   $ref: '#/components/schemas/Slot'
         '400':
-          $ref: '#/components/responses/ValidationError'
-        '404':
-          $ref: '#/components/responses/MeetingTypeNotFound'
-  /api/bookings:
-    post:
-      operationId: createBooking
-      tags: [guest]
-      summary: Reserve an available slot
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBookingRequest'
-      responses:
-        '201':
-          description: Booking created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '404':
-          $ref: '#/components/responses/MeetingTypeNotFound'
-        '409':
-          description: Slot unavailable or idempotency key reused
+          description: The server could not understand the request due to invalid syntax.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-              examples:
-                slotUnavailable:
-                  $ref: '#/components/examples/SlotUnavailable'
-                idempotencyKeyReused:
-                  $ref: '#/components/examples/IdempotencyKeyReused'
-        '422':
-          $ref: '#/components/responses/ValidationErrorUnprocessable'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - guest
   /api/owner/bookings:
     get:
       operationId: listOwnerBookings
-      tags: [owner]
       summary: List upcoming bookings
+      parameters: []
       responses:
         '200':
-          description: Upcoming bookings sorted by start time
+          description: The request has succeeded.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Booking'
+      tags:
+        - owner
+  /api/owner/meeting-types:
+    post:
+      operationId: createMeetingType
+      summary: Create a meeting type
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
 components:
-  parameters:
-    MeetingTypeId:
-      name: meetingTypeId
-      in: path
-      required: true
-      description: Meeting type identifier
-      schema:
-        type: string
-        minLength: 1
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      description: Client supplied key used to safely retry a booking request.
-      schema:
-        type: string
-        minLength: 1
-  responses:
-    ValidationError:
-      description: Request is invalid
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-          examples:
-            validation:
-              $ref: '#/components/examples/ValidationError'
-    ValidationErrorUnprocessable:
-      description: Request is semantically invalid
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-          examples:
-            validation:
-              $ref: '#/components/examples/ValidationError'
-    MeetingTypeNotFound:
-      description: Meeting type does not exist
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-          examples:
-            notFound:
-              $ref: '#/components/examples/MeetingTypeNotFound'
-    MeetingTypeNameTaken:
-      description: Meeting type name is already used
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
-          examples:
-            nameTaken:
-              $ref: '#/components/examples/MeetingTypeNameTaken'
-  examples:
-    ValidationError:
-      value:
-        type: https://example.com/problems/validation-error
-        title: Validation error
-        status: 400
-        code: VALIDATION_ERROR
-        detail: Request body is invalid.
-    MeetingTypeNotFound:
-      value:
-        type: https://example.com/problems/meeting-type-not-found
-        title: Meeting type not found
-        status: 404
-        code: MEETING_TYPE_NOT_FOUND
-    MeetingTypeNameTaken:
-      value:
-        type: https://example.com/problems/meeting-type-name-taken
-        title: Meeting type name is taken
-        status: 409
-        code: MEETING_TYPE_NAME_TAKEN
-    SlotUnavailable:
-      value:
-        type: https://example.com/problems/slot-unavailable
-        title: Slot unavailable
-        status: 409
-        code: SLOT_UNAVAILABLE
-    IdempotencyKeyReused:
-      value:
-        type: https://example.com/problems/idempotency-key-reused
-        title: Idempotency key reused
-        status: 409
-        code: IDEMPOTENCY_KEY_REUSED
   schemas:
-    MeetingType:
-      type: object
-      additionalProperties: false
-      required: [id, name, durationMinutes]
-      properties:
-        id:
-          type: string
-          minLength: 1
-        name:
-          type: string
-          minLength: 1
-        durationMinutes:
-          type: integer
-          format: int32
-          minimum: 5
-          multipleOf: 5
-        description:
-          type: string
-    CreateMeetingTypeRequest:
-      type: object
-      additionalProperties: false
-      required: [name, durationMinutes]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        durationMinutes:
-          type: integer
-          format: int32
-          minimum: 5
-          multipleOf: 5
-        description:
-          type: string
-    Slot:
-      type: object
-      additionalProperties: false
-      required: [startAt, endAt]
-      properties:
-        startAt:
-          type: string
-          format: date-time
-        endAt:
-          type: string
-          format: date-time
-    MeetingTypeSnapshot:
-      type: object
-      additionalProperties: false
-      required: [id, name, durationMinutes]
-      properties:
-        id:
-          type: string
-          minLength: 1
-        name:
-          type: string
-          minLength: 1
-        durationMinutes:
-          type: integer
-          format: int32
-          minimum: 5
-          multipleOf: 5
-    CreateBookingRequest:
-      type: object
-      additionalProperties: false
-      required: [meetingTypeId, startAt, guestName, guestEmail]
-      properties:
-        meetingTypeId:
-          type: string
-          minLength: 1
-        startAt:
-          type: string
-          format: date-time
-        guestName:
-          type: string
-          minLength: 1
-        guestEmail:
-          type: string
-          format: email
     Booking:
       type: object
-      additionalProperties: false
-      required: [id, meetingType, guestName, guestEmail, startAt, endAt]
+      required:
+        - id
+        - meetingType
+        - guestName
+        - guestEmail
+        - startAt
+        - endAt
       properties:
         id:
           type: string
@@ -308,6 +189,90 @@ components:
         endAt:
           type: string
           format: date-time
+      unevaluatedProperties:
+        not: {}
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - startAt
+        - guestName
+        - guestEmail
+      properties:
+        meetingTypeId:
+          type: string
+          minLength: 1
+        startAt:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+          minLength: 1
+        guestEmail:
+          type: string
+          format: email
+      unevaluatedProperties:
+        not: {}
+    CreateMeetingTypeRequest:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+      unevaluatedProperties:
+        not: {}
+    MeetingType:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+      unevaluatedProperties:
+        not: {}
+    MeetingTypeSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+      unevaluatedProperties:
+        not: {}
     ProblemCode:
       type: string
       enum:
@@ -318,8 +283,11 @@ components:
         - IDEMPOTENCY_KEY_REUSED
     ProblemDetails:
       type: object
-      additionalProperties: true
-      required: [type, title, status, code]
+      required:
+        - type
+        - title
+        - status
+        - code
       properties:
         type:
           type: string
@@ -333,3 +301,21 @@ components:
           type: string
         code:
           $ref: '#/components/schemas/ProblemCode'
+    Slot:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      unevaluatedProperties:
+        not: {}
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local API server
+    variables: {}

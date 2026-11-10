@@ -9,6 +9,9 @@ const response = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   })
 
+const requestUrl = (input: RequestInfo | URL) =>
+  input instanceof Request ? input.url : String(input)
+
 describe('админка', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -18,7 +21,7 @@ describe('админка', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
-        const url = String(input)
+        const url = requestUrl(input)
         if (url.endsWith('/api/meeting-types')) {
           return Promise.resolve(
             response([{ id: 'intro', name: 'Знакомство', durationMinutes: 30 }]),
@@ -38,8 +41,9 @@ describe('админка', () => {
 
   it('создаёт новый тип встречи из карточки формы', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
-      if (url.includes('/api/owner/meeting-types') && init?.method === 'POST') {
+      const url = requestUrl(input)
+      const method = input instanceof Request ? input.method : init?.method
+      if (url.includes('/api/owner/meeting-types') && method === 'POST') {
         return Promise.resolve(
           response({ id: 'consult', name: 'Консультация', durationMinutes: 45 }),
         )
@@ -57,9 +61,13 @@ describe('админка', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Создать тип встречи' }))
 
     expect(await screen.findByRole('heading', { name: 'Консультация' })).toBeTruthy()
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/owner/meeting-types',
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) =>
+          requestUrl(input).endsWith('/api/owner/meeting-types') &&
+          input instanceof Request &&
+          input.method === 'POST',
+      ),
+    ).toBe(true)
   })
 })

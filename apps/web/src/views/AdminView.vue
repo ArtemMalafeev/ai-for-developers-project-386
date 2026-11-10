@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { CalendarCheck2, Clock3, Plus, UsersRound } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
-import type { Booking, MeetingType } from 'calendar-api-client'
+import {
+  createMeetingType as createMeetingTypeRequest,
+  listMeetingTypes,
+  listOwnerBookings,
+  type Booking,
+  type MeetingType,
+} from 'calendar-api-client'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import { api } from '@/lib/api'
+import { responseData } from '@/lib/api'
 
 const OWNER_TIME_ZONE = 'Europe/Moscow'
 
@@ -48,7 +54,10 @@ const loadMeetingTypes = async () => {
   error.value = ''
   loading.value = true
   try {
-    const [types, upcoming] = await Promise.all([api.listMeetingTypes(), api.listOwnerBookings()])
+    const [types, upcoming] = await Promise.all([
+      responseData(listMeetingTypes({ throwOnError: true })),
+      responseData(listOwnerBookings({ throwOnError: true })),
+    ])
     meetingTypes.value = [...types]
     bookings.value = [...upcoming]
   } catch {
@@ -62,11 +71,16 @@ const createMeetingType = async () => {
   saving.value = true
   error.value = ''
   try {
-    const meetingType = await api.createMeetingType({
-      name: name.value,
-      durationMinutes: durationMinutes.value,
-      ...(description.value ? { description: description.value } : {}),
-    })
+    const meetingType = await responseData(
+      createMeetingTypeRequest({
+        body: {
+          name: name.value,
+          durationMinutes: durationMinutes.value,
+          ...(description.value ? { description: description.value } : {}),
+        },
+        throwOnError: true,
+      }),
+    )
     meetingTypes.value.push(meetingType)
     name.value = ''
     durationMinutes.value = 30
