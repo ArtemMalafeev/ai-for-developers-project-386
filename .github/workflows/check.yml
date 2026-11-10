@@ -25,39 +25,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate contracts
-        run: pnpm contracts:generate
-
-      - name: Verify committed contract artifacts
-        run: |
-          if [ -n "$(git status --porcelain -- packages/contracts/openapi packages/api-client/src/generated apps/backend/src/generated)" ]; then
-            git status --short -- packages/contracts/openapi packages/api-client/src/generated apps/backend/src/generated
-            exit 1
-          fi
-
-      - name: Validate hk configuration
-        run: mise exec -- hk validate
-
-      - name: Lint
-        run: mise run lint
-
-      - name: Typecheck
-        run: mise run typecheck
-
-      - name: Tests
-        run: pnpm --filter apps-api test && pnpm --filter apps-web test:run
-
-      - name: Build
-        run: pnpm -r build
-
       - name: Install Chromium
         run: pnpm --filter apps-web exec playwright install --with-deps chromium
 
-      - name: Browser test
-        run: mise run e2e
-
-      - name: Smoke test
-        run: mise run smoke
+      - name: Check
+        run: mise run check
 
       - name: Upload Playwright report
         if: failure()

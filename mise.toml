@@ -19,13 +19,20 @@ run = "pnpm -r lint"
 description = "Type-check all workspace packages"
 run = "pnpm -r type-check"
 
+[tasks.hk]
+description = "Validate hk configuration"
+run = "hk validate"
+
 [tasks.test]
-description = "Run frontend tests"
-run = "pnpm --filter apps-web test:run"
+description = "Run backend and frontend tests"
+run = ["pnpm --filter apps-api test", "pnpm --filter apps-web test:run"]
+
+[tasks.build]
+description = "Build all workspace packages"
+run = "pnpm -r build"
 
 [tasks.smoke]
 description = "Run fullstack smoke tests"
-wait_for = ["e2e"]
 run = "node scripts/smoke.mjs"
 
 [tasks.e2e]
@@ -34,4 +41,13 @@ run = "pnpm --filter apps-web test:e2e"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["contracts", "lint", "typecheck", "test", "e2e", "smoke"]
+run = [
+  { task = "contracts" },
+  { task = "hk" },
+  { task = "lint" },
+  { task = "typecheck" },
+  { task = "test" },
+  { task = "build" },
+  { task = "e2e" },
+  { task = "smoke" },
+]
