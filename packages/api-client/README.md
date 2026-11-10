@@ -1,11 +1,5 @@
 # calendar-api-client
 
-Typed runtime client for `packages/contracts/openapi/openapi.yaml`. The schema types are aliases
-of the generated OpenAPI TypeScript output; the request wrapper is maintained in `src/client.ts`.
+The typed Fetch SDK in `src/generated/` is generated from the TypeSpec OpenAPI output. Frontend views call its generated methods directly.
 
-```ts
-import { createApiClient } from 'calendar-api-client'
-
-const api = createApiClient({ baseUrl: 'http://127.0.0.1:3000' })
-const meetingTypes = await api.listMeetingTypes()
-```
+Run `pnpm contracts:generate` from the repository root after changing `packages/contracts/src/main.tsp`.

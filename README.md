@@ -25,6 +25,15 @@ cd ai-for-developers-project-386
 
 <!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
 
+Установите зависимости и запустите клиент и API:
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Контракт API описан в `packages/contracts/src/main.tsp`. После изменения TypeSpec выполните `pnpm contracts:generate`. Команда последовательно создаёт `packages/contracts/openapi/openapi.yaml`, типизированный Fetch SDK в `packages/api-client/src/generated/` и типы обработчиков Fastify в `apps/backend/src/generated/`. Все эти файлы хранятся в Git. `pnpm contracts:check` повторяет генерацию во временной директории и сообщает об устаревших артефактах.
+
 ---
 
 <details>
