@@ -25,8 +25,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate and verify contracts
-        run: pnpm contracts:check
+      - name: Generate contracts
+        run: pnpm contracts:generate
+
+      - name: Verify committed contract artifacts
+        run: |
+          if [ -n "$(git status --porcelain -- packages/contracts/openapi packages/api-client/src/generated apps/backend/src/generated)" ]; then
+            git status --short -- packages/contracts/openapi packages/api-client/src/generated apps/backend/src/generated
+            exit 1
+          fi
 
       - name: Validate hk configuration
         run: mise exec -- hk validate

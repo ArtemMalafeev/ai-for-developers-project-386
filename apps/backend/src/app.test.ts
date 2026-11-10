@@ -90,4 +90,63 @@ describe('calendar HTTP API', () => {
     expect(response.headers['content-type']).toContain('application/problem+json')
     expect(response.json()).toMatchObject({ status: 404, code: 'MEETING_TYPE_NOT_FOUND' })
   })
+
+  it('enforces contract field constraints and distinguishes semantic validation', async () => {
+    const app = buildApp(new CalendarService())
+    apps.push(app)
+
+    const invalidDuration = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Созвон', durationMinutes: 7 },
+    })
+    expect(invalidDuration.statusCode).toBe(400)
+    expect(invalidDuration.headers['content-type']).toContain('application/problem+json')
+
+    const semanticError = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: ' ', durationMinutes: 30 },
+    })
+    expect(semanticError.statusCode).toBe(422)
+    expect(semanticError.json()).toMatchObject({ status: 422, code: 'VALIDATION_ERROR' })
+  })
+
+  it('creates a booking and returns a conflict for a reserved slot', async () => {
+    const app = buildApp(new CalendarService({ now: () => new Date('2026-11-10T05:00:00Z') }))
+    apps.push(app)
+    const createdType = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Знакомство', durationMinutes: 30 },
+    })
+    const meetingTypeId = createdType.json().id as string
+    const slots = await app.inject({
+      method: 'GET',
+      url: `/api/meeting-types/${meetingTypeId}/slots`,
+    })
+    expect(slots.statusCode).toBe(200)
+    const startAt = slots.json()[0]?.startAt as string
+    expect(startAt).toBeTruthy()
+    const payload = { meetingTypeId, startAt, guestName: 'Гость', guestEmail: 'guest@example.com' }
+    const createdBooking = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'booking-1' },
+      payload,
+    })
+    expect(createdBooking.statusCode).toBe(201)
+    expect(createdBooking.headers['content-type']).toContain('application/json')
+    expect(createdBooking.json()).toMatchObject({ guestName: 'Гость', startAt })
+
+    const conflict = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'booking-2' },
+      payload,
+    })
+    expect(conflict.statusCode).toBe(409)
+    expect(conflict.headers['content-type']).toContain('application/problem+json')
+    expect(conflict.json()).toMatchObject({ status: 409, code: 'SLOT_UNAVAILABLE' })
+  })
 })
