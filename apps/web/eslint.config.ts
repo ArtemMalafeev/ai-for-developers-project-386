@@ -22,5 +22,14 @@ export default defineConfigWithVueTs(
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
+  {
+    name: 'shadcn/ui-components',
+    files: ['src/components/ui/**/*.vue'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
   skipFormatting,
 )
