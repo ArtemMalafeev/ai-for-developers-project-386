@@ -129,13 +129,16 @@ components:
       properties:
         meetingTypeId:
           type: string
+          minLength: 1
         startAt:
           type: string
           format: date-time
         guestName:
           type: string
+          minLength: 1
         guestEmail:
           type: string
+          format: email
     CreateMeetingTypeRequest:
       type: object
       required:
@@ -144,9 +147,11 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
         durationMinutes:
           type: integer
           format: int32
+          minimum: 5
         description:
           type: string
     MeetingType:
@@ -158,11 +163,14 @@ components:
       properties:
         id:
           type: string
+          minLength: 1
         name:
           type: string
+          minLength: 1
         durationMinutes:
           type: integer
           format: int32
+          minimum: 5
         description:
           type: string
     MeetingTypeSnapshot:
@@ -174,11 +182,14 @@ components:
       properties:
         id:
           type: string
+          minLength: 1
         name:
           type: string
+          minLength: 1
         durationMinutes:
           type: integer
           format: int32
+          minimum: 5
     ProblemCode:
       type: string
       enum:
@@ -197,6 +208,7 @@ components:
       properties:
         type:
           type: string
+          format: uri-reference
         title:
           type: string
         status:

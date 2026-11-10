@@ -10,15 +10,15 @@ using TypeSpec.Rest;
 namespace CallCalendar;
 
 model MeetingType {
-  id: string;
-  name: string;
-  durationMinutes: int32;
+  @minLength(1) id: string;
+  @minLength(1) name: string;
+  @minValue(5) durationMinutes: int32;
   description?: string;
 }
 
 model CreateMeetingTypeRequest {
-  name: string;
-  durationMinutes: int32;
+  @minLength(1) name: string;
+  @minValue(5) durationMinutes: int32;
   description?: string;
 }
 
@@ -28,16 +28,16 @@ model Slot {
 }
 
 model MeetingTypeSnapshot {
-  id: string;
-  name: string;
-  durationMinutes: int32;
+  @minLength(1) id: string;
+  @minLength(1) name: string;
+  @minValue(5) durationMinutes: int32;
 }
 
 model CreateBookingRequest {
-  meetingTypeId: string;
+  @minLength(1) meetingTypeId: string;
   startAt: utcDateTime;
-  guestName: string;
-  guestEmail: string;
+  @minLength(1) guestName: string;
+  @format("email") guestEmail: string;
 }
 
 model Booking {
@@ -58,7 +58,7 @@ enum ProblemCode {
 }
 
 model ProblemDetails {
-  type: string;
+  @format("uri-reference") type: string;
   title: string;
   status: int32;
   detail?: string;

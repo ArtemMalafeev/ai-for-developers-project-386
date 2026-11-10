@@ -1,7 +1,8 @@
 # @calendar/contracts
 
-The TypeSpec source of truth lives in `src/main.tsp`. The checked-in OpenAPI document is
-`openapi/openapi.yaml` and is consumed by `calendar-api-client`.
+The checked-in `openapi/openapi.yaml` is the canonical HTTP contract consumed by
+`calendar-api-client`. TypeSpec in `src/main.tsp` is compiled on every generation run and its
+route and schema surface is checked against the canonical document.
 
-Run `pnpm contracts:generate` from the repository root. Generation is deterministic; CI runs
-`pnpm contracts:check` and fails when generated files differ from the committed artifacts.
+Run `pnpm contracts:generate` from the repository root. CI runs `pnpm contracts:check` and fails
+when the TypeSpec output or generated OpenAPI TypeScript schema differs from the committed files.

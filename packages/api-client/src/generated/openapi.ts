@@ -4,22 +4,6 @@
  */
 
 export interface paths {
-    "/api/bookings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["GuestBookings_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/meeting-types": {
         parameters: {
             query?: never;
@@ -27,39 +11,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["GuestMeetingTypes_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/meeting-types/{meetingTypeId}/slots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["GuestSlots_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/owner/bookings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["OwnerBookings_list"];
+        /** List meeting types */
+        get: operations["listMeetingTypes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -77,7 +30,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["OwnerMeetingTypes_create"];
+        /** Create a meeting type */
+        post: operations["createMeetingType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/meeting-types/{meetingTypeId}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List available slots for the next 14 calendar days */
+        get: operations["listMeetingTypeSlots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reserve an available slot */
+        post: operations["createBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/owner/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List upcoming bookings */
+        get: operations["listOwnerBookings"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -88,29 +93,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        Booking: {
-            id: string;
-            meetingType: components["schemas"]["MeetingTypeSnapshot"];
-            guestName: string;
-            guestEmail: string;
-            /** Format: date-time */
-            startAt: string;
-            /** Format: date-time */
-            endAt: string;
-        };
-        CreateBookingRequest: {
-            meetingTypeId: string;
-            /** Format: date-time */
-            startAt: string;
-            guestName: string;
-            guestEmail: string;
-        };
-        CreateMeetingTypeRequest: {
-            name: string;
-            /** Format: int32 */
-            durationMinutes: number;
-            description?: string;
-        };
         MeetingType: {
             id: string;
             name: string;
@@ -118,21 +100,11 @@ export interface components {
             durationMinutes: number;
             description?: string;
         };
-        MeetingTypeSnapshot: {
-            id: string;
+        CreateMeetingTypeRequest: {
             name: string;
             /** Format: int32 */
             durationMinutes: number;
-        };
-        /** @enum {string} */
-        ProblemCode: "VALIDATION_ERROR" | "MEETING_TYPE_NOT_FOUND" | "MEETING_TYPE_NAME_TAKEN" | "SLOT_UNAVAILABLE" | "IDEMPOTENCY_KEY_REUSED";
-        ProblemDetails: {
-            type: string;
-            title: string;
-            /** Format: int32 */
-            status: number;
-            detail?: string;
-            code: components["schemas"]["ProblemCode"];
+            description?: string;
         };
         Slot: {
             /** Format: date-time */
@@ -140,42 +112,96 @@ export interface components {
             /** Format: date-time */
             endAt: string;
         };
+        MeetingTypeSnapshot: {
+            id: string;
+            name: string;
+            /** Format: int32 */
+            durationMinutes: number;
+        };
+        CreateBookingRequest: {
+            meetingTypeId: string;
+            /** Format: date-time */
+            startAt: string;
+            guestName: string;
+            /** Format: email */
+            guestEmail: string;
+        };
+        Booking: {
+            id: string;
+            meetingType: components["schemas"]["MeetingTypeSnapshot"];
+            guestName: string;
+            /** Format: email */
+            guestEmail: string;
+            /** Format: date-time */
+            startAt: string;
+            /** Format: date-time */
+            endAt: string;
+        };
+        /** @enum {string} */
+        ProblemCode: "VALIDATION_ERROR" | "MEETING_TYPE_NOT_FOUND" | "MEETING_TYPE_NAME_TAKEN" | "SLOT_UNAVAILABLE" | "IDEMPOTENCY_KEY_REUSED";
+        ProblemDetails: {
+            /** Format: uri-reference */
+            type: string;
+            title: string;
+            /** Format: int32 */
+            status: number;
+            detail?: string;
+            code: components["schemas"]["ProblemCode"];
+        } & {
+            [key: string]: unknown;
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Request is invalid */
+        ValidationError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Request is semantically invalid */
+        ValidationErrorUnprocessable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Meeting type does not exist */
+        MeetingTypeNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+        /** @description Meeting type name is already used */
+        MeetingTypeNameTaken: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["ProblemDetails"];
+            };
+        };
+    };
+    parameters: {
+        /** @description Meeting type identifier */
+        MeetingTypeId: string;
+        /** @description Client supplied key used to safely retry a booking request. */
+        IdempotencyKey: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    GuestBookings_create: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateBookingRequest"];
-            };
-        };
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Booking"] | components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    GuestMeetingTypes_list: {
+    listMeetingTypes: {
         parameters: {
             query?: never;
             header?: never;
@@ -184,7 +210,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The request has succeeded. */
+            /** @description Available meeting types */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -195,49 +221,7 @@ export interface operations {
             };
         };
     };
-    GuestSlots_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                meetingTypeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Slot"][] | components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    OwnerBookings_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request has succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Booking"][];
-                };
-            };
-        };
-    };
-    OwnerMeetingTypes_create: {
+    createMeetingType: {
         parameters: {
             query?: never;
             header?: never;
@@ -250,13 +234,100 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The request has succeeded. */
+            /** @description Meeting type created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingType"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            409: components["responses"]["MeetingTypeNameTaken"];
+            422: components["responses"]["ValidationErrorUnprocessable"];
+        };
+    };
+    listMeetingTypeSlots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Meeting type identifier */
+                meetingTypeId: components["parameters"]["MeetingTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Available slots */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MeetingType"] | components["schemas"]["ProblemDetails"];
+                    "application/json": components["schemas"]["Slot"][];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["MeetingTypeNotFound"];
+        };
+    };
+    createBooking: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client supplied key used to safely retry a booking request. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBookingRequest"];
+            };
+        };
+        responses: {
+            /** @description Booking created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["MeetingTypeNotFound"];
+            /** @description Slot unavailable or idempotency key reused */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: components["responses"]["ValidationErrorUnprocessable"];
+        };
+    };
+    listOwnerBookings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upcoming bookings sorted by start time */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Booking"][];
                 };
             };
         };

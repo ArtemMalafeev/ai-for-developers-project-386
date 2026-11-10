@@ -1,6 +1,7 @@
 # calendar-api-client
 
-Typed client generated from `packages/contracts/openapi/openapi.yaml`.
+Typed runtime client for `packages/contracts/openapi/openapi.yaml`. The schema types are aliases
+of the generated OpenAPI TypeScript output; the request wrapper is maintained in `src/client.ts`.
 
 ```ts
 import { createApiClient } from 'calendar-api-client'

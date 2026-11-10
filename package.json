@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter apps-web --filter apps-api dev",
     "contracts:generate": "node scripts/generate-contracts.mjs",
-    "contracts:check": "pnpm contracts:generate && git diff --exit-code -- packages/contracts/openapi packages/api-client/src/generated"
+    "contracts:check": "node scripts/generate-contracts.mjs --check"
   },
   "repository": {
     "type": "git",

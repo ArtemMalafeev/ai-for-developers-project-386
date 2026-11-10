@@ -1,4 +1,4 @@
-/** Generated from packages/contracts/openapi/openapi.yaml. Do not edit by hand. */
+/** Runtime client for the calendar API contract. */
 
 import type {
   Booking,
