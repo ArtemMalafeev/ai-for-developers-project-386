@@ -11,7 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -50,5 +50,19 @@ jobs:
       - name: Build
         run: pnpm -r build
 
+      - name: Install Chromium
+        run: pnpm --filter apps-web exec playwright install --with-deps chromium
+
+      - name: Browser test
+        run: mise run e2e
+
       - name: Smoke test
         run: mise run smoke
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore

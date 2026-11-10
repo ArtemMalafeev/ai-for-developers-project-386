@@ -25,8 +25,13 @@ run = "pnpm --filter apps-web test:run"
 
 [tasks.smoke]
 description = "Run fullstack smoke tests"
+wait_for = ["e2e"]
 run = "node scripts/smoke.mjs"
+
+[tasks.e2e]
+description = "Run browser booking test"
+run = "pnpm --filter apps-web test:e2e"
 
 [tasks.check]
 description = "Run all project checks"
-depends = ["contracts", "lint", "typecheck", "test", "smoke"]
+depends = ["contracts", "lint", "typecheck", "test", "e2e", "smoke"]

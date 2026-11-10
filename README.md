@@ -34,6 +34,25 @@ pnpm dev
 
 Контракт API описан в `packages/contracts/src/main.tsp`. После изменения TypeSpec выполните `pnpm contracts:generate`. Команда последовательно создаёт `packages/contracts/openapi/openapi.yaml`, типизированный Fetch SDK в `packages/api-client/src/generated/` и типы обработчиков Fastify в `apps/backend/src/generated/`. Все эти файлы хранятся в Git. `pnpm contracts:check` повторяет генерацию во временной директории и сообщает об устаревших артефактах.
 
+## Браузерный тест
+
+Playwright проверяет полный сценарий записи в Chromium: создание типа встречи владельцем, выбор дня и слота гостем, подтверждение и появление записи в списке владельца. Для первого запуска установите браузер:
+
+```bash
+pnpm install
+pnpm --filter apps-web exec playwright install chromium
+```
+
+Запускайте команды из корня репозитория. Playwright сам поднимает клиент и API; перед тестом остановите вручную запущенные dev-серверы на портах 3000 и 5173.
+
+```bash
+pnpm --filter apps-web test:e2e
+pnpm --filter apps-web exec playwright test --headed
+pnpm --filter apps-web exec playwright show-report
+```
+
+Первый запуск выполняет тест без окна браузера. Флаг `--headed` показывает действия в окне, а `show-report` открывает отчёт последнего запуска. В CI Chromium и его системные зависимости устанавливаются автоматически, затем выполняется тот же тест.
+
 ---
 
 <details>
