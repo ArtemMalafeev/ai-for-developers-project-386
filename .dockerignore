@@ -1,0 +1,12 @@
+.git
+.codex
+.env
+.env.*
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+playwright-report
+test-results
+.DS_Store

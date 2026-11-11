@@ -32,6 +32,25 @@ pnpm install
 pnpm dev
 ```
 
+## Docker
+
+Собрать образ и запустить приложение на локальном порту можно так:
+
+```bash
+docker build -t calendar-calls .
+docker run --rm -p 3000:3000 -e PORT=3000 calendar-calls
+```
+
+Контейнер запускает Fastify и собранный Vue-клиент на одном порту. Значения `PORT` и `HOST` передаются в `apps/backend/src/server.ts`; по умолчанию используется порт `3000`, локальная разработка слушает `127.0.0.1`, а production-хостинг — `0.0.0.0`. Данные календаря хранятся в памяти и сбрасываются после перезапуска контейнера.
+
+## Деплой
+
+Приложение опубликовано на Railway:
+
+**Публичная ссылка:** https://ai-for-developers-project-386-production-f9717bc1.up.railway.app
+
+Для локального подключения MCP используйте файл `.codex/config.toml`, который не входит в репозиторий; инструкция — в `docs/agents/mcp-railway.md`. OAuth-сессия и API-токены хранятся только локально или в переменных окружения.
+
 Контракт API описан в `packages/contracts/src/main.tsp`. После изменения TypeSpec выполните `pnpm contracts:generate`. Команда последовательно создаёт `packages/contracts/openapi/openapi.yaml`, типизированный Fetch SDK в `packages/api-client/src/generated/` и типы обработчиков Fastify в `apps/backend/src/generated/`. Все эти файлы хранятся в Git. `pnpm contracts:check` повторяет генерацию во временной директории и сообщает об устаревших артефактах.
 
 ## Браузерный тест

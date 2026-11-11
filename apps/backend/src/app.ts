@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { resolve, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply } from 'fastify'
 import openapiGlue from 'fastify-openapi-glue'
@@ -7,9 +10,37 @@ import addFormatsModule from 'ajv-formats'
 import { CalendarError, CalendarService } from './calendar.js'
 import type { RouteHandlers } from './generated/fastify.gen.js'
 
-const specification = fileURLToPath(
-  new URL('../../../packages/contracts/openapi/openapi.yaml', import.meta.url),
+const resolveExistingPath = (paths: string[], fallback: string) => paths.find(existsSync) ?? fallback
+
+const specification = resolveExistingPath(
+  [
+    resolve(process.cwd(), 'packages/contracts/openapi/openapi.yaml'),
+    fileURLToPath(new URL('../../../packages/contracts/openapi/openapi.yaml', import.meta.url)),
+  ],
+  resolve(process.cwd(), 'packages/contracts/openapi/openapi.yaml'),
 )
+const webDist = resolveExistingPath(
+  [
+    resolve(process.cwd(), 'apps/web/dist'),
+    fileURLToPath(new URL('../../web/dist', import.meta.url)),
+  ],
+  resolve(process.cwd(), 'apps/web/dist'),
+)
+
+const contentTypes: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.gif': 'image/gif',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+}
 
 const problem = (error: CalendarError, reply: FastifyReply) =>
   reply.status(error.status).type('application/problem+json').send({
@@ -100,5 +131,29 @@ export const buildApp = (service = new CalendarService()): FastifyInstance => {
   } satisfies RouteHandlers
 
   app.register(openapiGlue, { specification, serviceHandlers })
+
+  app.get('/*', async (request, reply) => {
+    const requestedPath = decodeURIComponent(request.url.split('?')[0] ?? '/')
+    const relativePath = requestedPath === '/' ? 'index.html' : requestedPath.slice(1)
+    const filePath = resolve(webDist, relativePath)
+    const isInsideWebDist = filePath === webDist || filePath.startsWith(`${webDist}/`)
+
+    if (!isInsideWebDist) {
+      return reply.code(400).send({ error: 'Invalid path' })
+    }
+
+    try {
+      const body = await readFile(filePath)
+      return reply.type(contentTypes[extname(filePath)] ?? 'application/octet-stream').send(body)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      if (requestedPath === '/api' || requestedPath.startsWith('/api/')) {
+        return reply.code(404).send({ error: 'Not found' })
+      }
+      const index = await readFile(resolve(webDist, 'index.html'))
+      return reply.type('text/html; charset=utf-8').send(index)
+    }
+  })
+
   return app
 }
