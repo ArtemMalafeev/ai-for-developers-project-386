@@ -149,4 +149,72 @@ describe('calendar HTTP API', () => {
     expect(conflict.headers['content-type']).toContain('application/problem+json')
     expect(conflict.json()).toMatchObject({ status: 409, code: 'SLOT_UNAVAILABLE' })
   })
+
+  it('rejects a stale half-hour slot after an overlapping hour-long booking', async () => {
+    const app = buildApp(new CalendarService({ now: () => new Date('2026-11-09T06:00:00.000Z') }))
+    apps.push(app)
+    const hourStart = '2026-11-09T06:00:00.000Z'
+    const halfHourStart = '2026-11-09T06:30:00.000Z'
+    const nextHourStart = '2026-11-09T07:00:00.000Z'
+
+    const hourTypeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Часовой звонок', durationMinutes: 60 },
+    })
+    const halfHourTypeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Короткий звонок', durationMinutes: 30 },
+    })
+    expect(hourTypeResponse.statusCode).toBe(201)
+    expect(halfHourTypeResponse.statusCode).toBe(201)
+    const hourTypeId = hourTypeResponse.json().id as string
+    const halfHourTypeId = halfHourTypeResponse.json().id as string
+
+    const slotsBeforeBooking = await app.inject({
+      method: 'GET',
+      url: `/api/meeting-types/${halfHourTypeId}/slots`,
+    })
+    expect(slotsBeforeBooking.statusCode).toBe(200)
+    expect(slotsBeforeBooking.json().map((slot: { startAt: string }) => slot.startAt)).toContain(halfHourStart)
+
+    const hourBooking = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'cross-type-hour' },
+      payload: {
+        meetingTypeId: hourTypeId,
+        startAt: hourStart,
+        guestName: 'Первый гость',
+        guestEmail: 'first@example.com',
+      },
+    })
+    expect(hourBooking.statusCode).toBe(201)
+
+    const slotsAfterBooking = await app.inject({
+      method: 'GET',
+      url: `/api/meeting-types/${halfHourTypeId}/slots`,
+    })
+    expect(slotsAfterBooking.statusCode).toBe(200)
+    const availableStarts = slotsAfterBooking.json().map((slot: { startAt: string }) => slot.startAt)
+    expect(availableStarts).not.toContain(hourStart)
+    expect(availableStarts).not.toContain(halfHourStart)
+    expect(availableStarts).toContain(nextHourStart)
+
+    const overlappingBooking = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'cross-type-half-hour' },
+      payload: {
+        meetingTypeId: halfHourTypeId,
+        startAt: halfHourStart,
+        guestName: 'Второй гость',
+        guestEmail: 'second@example.com',
+      },
+    })
+    expect(overlappingBooking.statusCode).toBe(409)
+    expect(overlappingBooking.headers['content-type']).toContain('application/problem+json')
+    expect(overlappingBooking.json()).toMatchObject({ status: 409, code: 'SLOT_UNAVAILABLE' })
+  })
 })

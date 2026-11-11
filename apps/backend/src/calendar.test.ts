@@ -48,6 +48,31 @@ describe('CalendarService', () => {
     expect(service.listSlots(meetingType.id)).not.toContainEqual({ startAt: booking.startAt, endAt: booking.endAt })
   })
 
+  it('excludes starts overlapping a different meeting type and keeps the adjacent start', () => {
+    const service = new CalendarService({ now: () => now })
+    const hourType = service.createMeetingType({ name: 'Часовой звонок', durationMinutes: 60 })
+    const halfHourType = service.createMeetingType({ name: 'Короткий звонок', durationMinutes: 30 })
+    const hourStart = '2026-11-09T06:00:00.000Z'
+    const halfHourStart = '2026-11-09T06:30:00.000Z'
+    const nextHourStart = '2026-11-09T07:00:00.000Z'
+
+    expect(service.listSlots(halfHourType.id).map((slot) => slot.startAt)).toEqual(
+      expect.arrayContaining([hourStart, halfHourStart, nextHourStart]),
+    )
+    service.createBooking({
+      meetingTypeId: hourType.id,
+      startAt: hourStart,
+      guestName: 'Первый гость',
+      guestEmail: 'first@example.com',
+      idempotencyKey: 'cross-type-hour',
+    })
+
+    const availableStarts = service.listSlots(halfHourType.id).map((slot) => slot.startAt)
+    expect(availableStarts).not.toContain(hourStart)
+    expect(availableStarts).not.toContain(halfHourStart)
+    expect(availableStarts).toContain(nextHourStart)
+  })
+
   it('keeps adjacent slots available and rejects overlapping bookings', () => {
     const service = new CalendarService({ now: () => now })
     const meetingType = service.createMeetingType({ name: 'Созвон', durationMinutes: 30 })
