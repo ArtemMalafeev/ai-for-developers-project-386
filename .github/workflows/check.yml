@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm --filter apps-web exec playwright install --with-deps chromium
+      - name: Install Chromium headless shell
+        run: pnpm --filter apps-web exec playwright install --only-shell chromium
 
       - name: Check
         run: mise run check
