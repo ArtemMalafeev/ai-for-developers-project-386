@@ -25,7 +25,7 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { responseData } from '@/lib/api'
+import { ApiError, responseData } from '@/lib/api'
 
 const OWNER_TIME_ZONE = 'Europe/Moscow'
 
@@ -41,6 +41,7 @@ const selectedSlot = ref<Slot>()
 const guestName = ref('')
 const guestEmail = ref('')
 const bookingError = ref('')
+const slotConflictError = ref('')
 const bookingConfirmation = ref('')
 const bookingLoading = ref(false)
 const idempotencyKey = ref('')
@@ -101,24 +102,46 @@ const selectedDaySlots = computed(() => selectedDay.value?.slots ?? [])
 const formatDate = (value: string) => dateFormatter.format(new Date(value))
 const formatTime = (value: string) => timeFormatter.format(new Date(value))
 
+const fetchSlots = async (meetingTypeId: string) => [
+  ...(await responseData(
+    listMeetingTypeSlots({
+      path: { meetingTypeId },
+      throwOnError: true,
+    }),
+  )),
+]
+
+const refreshSlots = async () => {
+  if (!selectedType.value) return
+
+  const previousDateKey = selectedDate.value?.toString()
+  slotsLoading.value = true
+  slotsError.value = ''
+  try {
+    slots.value = await fetchSlots(selectedType.value.id)
+    selectedDate.value =
+      slotDays.value.find((day) => day.key === previousDateKey)?.date ?? slotDays.value[0]?.date
+  } catch {
+    slotsError.value = 'Не удалось загрузить свободные слоты.'
+    slots.value = []
+    selectedDate.value = undefined
+  } finally {
+    slotsLoading.value = false
+  }
+}
+
 const selectMeetingType = async (meetingType: MeetingType) => {
   selectedType.value = meetingType
   selectedDate.value = undefined
   selectedSlot.value = undefined
   bookingConfirmation.value = ''
   bookingError.value = ''
+  slotConflictError.value = ''
   slotsError.value = ''
   slotsLoading.value = true
 
   try {
-    slots.value = [
-      ...(await responseData(
-        listMeetingTypeSlots({
-          path: { meetingTypeId: meetingType.id },
-          throwOnError: true,
-        }),
-      )),
-    ]
+    slots.value = await fetchSlots(meetingType.id)
     selectedDate.value = slotDays.value[0]?.date
   } catch {
     slotsError.value = 'Не удалось загрузить свободные слоты.'
@@ -150,6 +173,7 @@ const createBooking = async () => {
       }),
     )
     bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${formatDate(booking.startAt)} с ${formatTime(booking.startAt)} до ${formatTime(booking.endAt)}.`
+    slotConflictError.value = ''
     slots.value = slots.value.filter((slot) => slot.startAt !== booking.startAt)
     selectedSlot.value = undefined
     guestName.value = ''
@@ -157,10 +181,22 @@ const createBooking = async () => {
     idempotencyKey.value = ''
     selectedDate.value = slotDays.value[0]?.date
   } catch (cause) {
-    bookingError.value = cause instanceof Error ? cause.message : 'Не удалось создать запись.'
+    if (cause instanceof ApiError && cause.code === 'SLOT_UNAVAILABLE') {
+      selectedSlot.value = undefined
+      slotConflictError.value = 'Это время уже занято. Выберите другое свободное время'
+      await refreshSlots()
+    } else {
+      bookingError.value = cause instanceof Error ? cause.message : 'Не удалось создать запись.'
+    }
   } finally {
     bookingLoading.value = false
   }
+}
+
+const selectSlot = (slot: Slot) => {
+  selectedSlot.value = slot
+  bookingError.value = ''
+  slotConflictError.value = ''
 }
 
 watch(selectedDate, () => {
@@ -267,6 +303,11 @@ onMounted(async () => {
             <span class="section-meta">{{ selectedType.name }}</span>
           </div>
 
+          <Alert v-if="slotConflictError" variant="destructive" class="mb-6">
+            <AlertTitle>Не удалось создать запись</AlertTitle>
+            <AlertDescription>{{ slotConflictError }}</AlertDescription>
+          </Alert>
+
           <div v-if="slotsLoading" class="loading-state" role="status">
             Загружаем свободные слоты…
           </div>
@@ -314,7 +355,7 @@ onMounted(async () => {
                     :variant="selectedSlot?.startAt === slot.startAt ? 'default' : 'outline'"
                     class="slot-button"
                     :aria-pressed="selectedSlot?.startAt === slot.startAt"
-                    @click="selectedSlot = slot"
+                    @click="selectSlot(slot)"
                   >
                     {{ formatTime(slot.startAt) }}
                   </Button>

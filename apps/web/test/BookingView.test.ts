@@ -9,6 +9,12 @@ const response = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   })
 
+const problemResponse = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/problem+json' },
+  })
+
 const requestUrl = (input: RequestInfo | URL) =>
   input instanceof Request ? input.url : String(input)
 
@@ -70,5 +76,84 @@ describe('страница записи', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Не удалось загрузить типы встреч',
     )
+  })
+
+  it('обновляет слоты после конфликта и сохраняет данные гостя', async () => {
+    const guestName = 'Анна'
+    const guestEmail = 'anna@example.com'
+    const initialSlots = [
+      { startAt: '2026-11-09T06:00:00.000Z', endAt: '2026-11-09T06:30:00.000Z' },
+      { startAt: '2026-11-09T06:30:00.000Z', endAt: '2026-11-09T07:00:00.000Z' },
+    ]
+    const refreshedSlots = [initialSlots[1]]
+    let slotsRequestCount = 0
+    let bookingRequestCount = 0
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const request = input instanceof Request ? input : undefined
+        const url = request?.url ?? String(input)
+        if (url.endsWith('/api/meeting-types')) {
+          return Promise.resolve(
+            response([{ id: 'intro', name: 'Знакомство', durationMinutes: 30 }]),
+          )
+        }
+        if (url.endsWith('/api/meeting-types/intro/slots')) {
+          slotsRequestCount += 1
+          return Promise.resolve(response(slotsRequestCount === 1 ? initialSlots : refreshedSlots))
+        }
+        if (url.endsWith('/api/bookings')) {
+          bookingRequestCount += 1
+          if (bookingRequestCount === 1) {
+            return Promise.resolve(
+              problemResponse(
+                {
+                  type: 'https://example.com/problems/slot-unavailable',
+                  title: 'The selected slot is unavailable.',
+                  status: 409,
+                  code: 'SLOT_UNAVAILABLE',
+                },
+                409,
+              ),
+            )
+          }
+          return Promise.resolve(
+            response({
+              id: 'booking-1',
+              meetingType: { id: 'intro', name: 'Знакомство', durationMinutes: 30 },
+              guestName,
+              guestEmail,
+              startAt: initialSlots[1].startAt,
+              endAt: initialSlots[1].endAt,
+            }),
+          )
+        }
+        return Promise.reject(new Error(`Неожиданный запрос: ${url}`))
+      }),
+    )
+    await router.push('/booking')
+    await router.isReady()
+    render(App, { global: { plugins: [router] } })
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Выбрать время' }))
+    await fireEvent.click(await screen.findByRole('button', { name: '09:00' }))
+    await fireEvent.update(screen.getByLabelText('Имя'), guestName)
+    await fireEvent.update(screen.getByLabelText('Email'), guestEmail)
+    await fireEvent.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
+
+    expect(
+      await screen.findByText('Это время уже занято. Выберите другое свободное время'),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '09:00' })).toBeNull()
+    expect(await screen.findByRole('button', { name: '09:30' })).toBeTruthy()
+
+    await fireEvent.click(screen.getByRole('button', { name: '09:30' }))
+    expect(screen.getByLabelText('Имя')).toHaveProperty('value', guestName)
+    expect(screen.getByLabelText('Email')).toHaveProperty('value', guestEmail)
+    expect(screen.queryByText('Это время уже занято. Выберите другое свободное время')).toBeNull()
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
+    expect(await screen.findByText(/Запись подтверждена/)).toBeTruthy()
   })
 })
