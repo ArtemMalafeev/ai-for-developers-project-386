@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { buildApp } from './app.js'
-import { CalendarService } from './calendar.js'
+import { CalendarService, InMemoryCalendarStore } from './calendar.js'
 
 describe('calendar HTTP API', () => {
   const apps: Array<{ close: () => Promise<void> }> = []
@@ -216,5 +216,71 @@ describe('calendar HTTP API', () => {
     expect(overlappingBooking.statusCode).toBe(409)
     expect(overlappingBooking.headers['content-type']).toContain('application/problem+json')
     expect(overlappingBooking.json()).toMatchObject({ status: 409, code: 'SLOT_UNAVAILABLE' })
+  })
+
+  it('lists upcoming bookings from different meeting types and drops passed bookings', async () => {
+    let current = new Date('2026-11-09T06:00:00.000Z')
+    const app = buildApp(new CalendarService({ store: new InMemoryCalendarStore(), now: () => current }))
+    apps.push(app)
+
+    const firstTypeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Знакомство', durationMinutes: 30 },
+    })
+    const secondTypeResponse = await app.inject({
+      method: 'POST',
+      url: '/api/owner/meeting-types',
+      payload: { name: 'Консультация', durationMinutes: 60 },
+    })
+    expect(firstTypeResponse.statusCode).toBe(201)
+    expect(secondTypeResponse.statusCode).toBe(201)
+
+    const firstBooking = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'owner-list-first' },
+      payload: {
+        meetingTypeId: firstTypeResponse.json().id,
+        startAt: '2026-11-09T06:00:00.000Z',
+        guestName: 'Первый гость',
+        guestEmail: 'first@example.com',
+      },
+    })
+    const secondBooking = await app.inject({
+      method: 'POST',
+      url: '/api/bookings',
+      headers: { 'Idempotency-Key': 'owner-list-second' },
+      payload: {
+        meetingTypeId: secondTypeResponse.json().id,
+        startAt: '2026-11-09T07:00:00.000Z',
+        guestName: 'Второй гость',
+        guestEmail: 'second@example.com',
+      },
+    })
+    expect(firstBooking.statusCode).toBe(201)
+    expect(secondBooking.statusCode).toBe(201)
+
+    const upcoming = await app.inject({ method: 'GET', url: '/api/owner/bookings' })
+    expect(upcoming.statusCode).toBe(200)
+    expect(upcoming.json().map((booking: { guestName: string }) => booking.guestName)).toEqual([
+      'Первый гость',
+      'Второй гость',
+    ])
+    expect(upcoming.json().map((booking: { meetingType: { name: string } }) => booking.meetingType.name)).toEqual([
+      'Знакомство',
+      'Консультация',
+    ])
+    expect(upcoming.json().map((booking: { startAt: string }) => booking.startAt)).toEqual([
+      '2026-11-09T06:00:00.000Z',
+      '2026-11-09T07:00:00.000Z',
+    ])
+
+    current = new Date('2026-11-09T06:30:00.000Z')
+    const afterFirstBookingPassed = await app.inject({ method: 'GET', url: '/api/owner/bookings' })
+    expect(afterFirstBookingPassed.statusCode).toBe(200)
+    expect(afterFirstBookingPassed.json().map((booking: { guestName: string }) => booking.guestName)).toEqual([
+      'Второй гость',
+    ])
   })
 })
