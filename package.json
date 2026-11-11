@@ -4,7 +4,9 @@
   "description": "[![hexlet-check](https://github.com/ArtemMalafeev/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/ArtemMalafeev/ai-for-developers-project-386/actions)",
   "main": "index.js",
   "scripts": {
-    "dev": "pnpm --parallel --filter apps-web --filter apps-api dev"
+    "dev": "pnpm --parallel --filter apps-web --filter apps-api dev",
+    "contracts:generate": "node scripts/generate-contracts.mjs",
+    "contracts:check": "node scripts/generate-contracts.mjs --check"
   },
   "repository": {
     "type": "git",

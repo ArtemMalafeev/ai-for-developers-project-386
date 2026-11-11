@@ -1,0 +1,321 @@
+openapi: 3.1.0
+info:
+  title: Call Calendar API
+  version: 1.0.0
+tags:
+  - name: guest
+  - name: owner
+paths:
+  /api/bookings:
+    post:
+      operationId: createBooking
+      summary: Reserve an available slot
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - guest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      summary: List meeting types
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+      tags:
+        - guest
+  /api/meeting-types/{meetingTypeId}/slots:
+    get:
+      operationId: listMeetingTypeSlots
+      summary: List available slots for the next 14 calendar days
+      parameters:
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - guest
+  /api/owner/bookings:
+    get:
+      operationId: listOwnerBookings
+      summary: List upcoming bookings
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+      tags:
+        - owner
+  /api/owner/meeting-types:
+    post:
+      operationId: createMeetingType
+      summary: Create a meeting type
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingType'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Client error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeetingTypeRequest'
+components:
+  schemas:
+    Booking:
+      type: object
+      required:
+        - id
+        - meetingType
+        - guestName
+        - guestEmail
+        - startAt
+        - endAt
+      properties:
+        id:
+          type: string
+          minLength: 1
+        meetingType:
+          $ref: '#/components/schemas/MeetingTypeSnapshot'
+        guestName:
+          type: string
+          minLength: 1
+        guestEmail:
+          type: string
+          format: email
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      unevaluatedProperties:
+        not: {}
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - startAt
+        - guestName
+        - guestEmail
+      properties:
+        meetingTypeId:
+          type: string
+          minLength: 1
+        startAt:
+          type: string
+          format: date-time
+        guestName:
+          type: string
+          minLength: 1
+        guestEmail:
+          type: string
+          format: email
+      unevaluatedProperties:
+        not: {}
+    CreateMeetingTypeRequest:
+      type: object
+      required:
+        - name
+        - durationMinutes
+      properties:
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+      unevaluatedProperties:
+        not: {}
+    MeetingType:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+        description:
+          type: string
+      unevaluatedProperties:
+        not: {}
+    MeetingTypeSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 5
+          multipleOf: 5
+      unevaluatedProperties:
+        not: {}
+    ProblemCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - MEETING_TYPE_NOT_FOUND
+        - MEETING_TYPE_NAME_TAKEN
+        - SLOT_UNAVAILABLE
+        - IDEMPOTENCY_KEY_REUSED
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - code
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        code:
+          $ref: '#/components/schemas/ProblemCode'
+    Slot:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      unevaluatedProperties:
+        not: {}
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local API server
+    variables: {}

@@ -135,6 +135,43 @@ try {
     await waitForService(service, child)
   }
 
+  const baseUrl = 'http://127.0.0.1:5173/api'
+  const typeResponse = await fetch(`${baseUrl}/owner/meeting-types`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: `Smoke ${Date.now()}`,
+      durationMinutes: 30,
+      description: 'Smoke test meeting',
+    }),
+  })
+  if (typeResponse.status !== 201) throw new Error(`meeting type creation failed: ${typeResponse.status}`)
+  const meetingType = await typeResponse.json()
+
+  const typesResponse = await fetch(`${baseUrl}/meeting-types`)
+  const types = await typesResponse.json()
+  if (!types.some((item) => item.id === meetingType.id)) throw new Error('created meeting type is missing from public list')
+
+  const slotsResponse = await fetch(`${baseUrl}/meeting-types/${meetingType.id}/slots`)
+  const slots = await slotsResponse.json()
+  if (!Array.isArray(slots) || slots.length === 0) throw new Error('smoke test found no available slots')
+
+  const bookingResponse = await fetch(`${baseUrl}/bookings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'Idempotency-Key': `smoke-${Date.now()}` },
+    body: JSON.stringify({
+      meetingTypeId: meetingType.id,
+      startAt: slots[0].startAt,
+      guestName: 'Smoke Guest',
+      guestEmail: 'smoke@example.com',
+    }),
+  })
+  if (bookingResponse.status !== 201) throw new Error(`booking creation failed: ${bookingResponse.status}`)
+  const booking = await bookingResponse.json()
+  const ownerBookingsResponse = await fetch(`${baseUrl}/owner/bookings`)
+  const ownerBookings = await ownerBookingsResponse.json()
+  if (!ownerBookings.some((item) => item.id === booking.id)) throw new Error('created booking is missing from owner list')
+
   console.log('\n✓ Smoke test passed')
 } catch (error) {
   console.error('\n✗ Smoke test failed:', error)

@@ -5,6 +5,10 @@ import App from '@/App.vue'
 import router from '@/router'
 
 describe('главная страница', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   beforeEach(async () => {
     await router.push('/')
     await router.isReady()
@@ -40,6 +44,10 @@ describe('главная страница', () => {
   })
 
   it('ведёт гостя на страницу записи', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise<Response>(() => {})),
+    )
     const { unmount } = render(App, {
       global: {
         plugins: [router],
@@ -51,11 +59,7 @@ describe('главная страница', () => {
     await nextTick()
 
     expect(screen.getByRole('heading', { name: 'Запись на звонок' })).toBeTruthy()
-    expect(
-      screen.getByText(
-        'Здесь появится выбор типа встречи и свободного времени. Сейчас этот раздел готовится к запуску.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText('Загружаем типы встреч…')).toBeTruthy()
 
     unmount()
   })

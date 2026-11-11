@@ -9,20 +9,24 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "lint": "run-s \"lint:*\"",
+    "lint": "run-s lint:oxlint lint:eslint",
     "lint:oxlint": "oxlint .",
     "lint:eslint": "eslint .",
     "lint:fix": "run-s \"lint:*:fix\"",
     "lint:oxlint:fix": "oxlint . --fix",
     "lint:eslint:fix": "eslint . --fix",
-    "format": "oxfmt src/ test/",
-    "format:check": "oxfmt --check src/ test/",
+    "format": "oxfmt src/ test/ e2e/ playwright.config.ts",
+    "format:check": "oxfmt --check src/ test/ e2e/ playwright.config.ts",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.4",
     "@lucide/vue": "^1.70.0",
     "@tailwindcss/vite": "^4.3.5",
+    "@vueuse/core": "^15.0.0",
+    "calendar-api-client": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
     "reka-ui": "^2.11.0",
@@ -32,6 +36,7 @@
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@testing-library/vue": "^8.1.0",
     "@tsconfig/node24": "^24.0.5",
     "@types/node": "^24.13.4",
