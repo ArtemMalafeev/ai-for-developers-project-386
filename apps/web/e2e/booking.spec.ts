@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
 
+const timeFormatter = new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 test('владелец создаёт тип встречи, гость записывается и владелец видит запись', async ({
   context,
   page: ownerPage,
@@ -43,11 +49,21 @@ test('владелец создаёт тип встречи, гость запи
   await slot.click()
   await guestPage.getByLabel('Имя').fill(guestName)
   await guestPage.getByLabel('Email').fill(guestEmail)
+  const bookingResponsePromise = guestPage.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/bookings') && response.request().method() === 'POST',
+  )
   await guestPage.getByRole('button', { name: 'Подтвердить запись' }).click()
+  const bookingResponse = await bookingResponsePromise
+  expect(bookingResponse.ok()).toBe(true)
+  const bookingPayload = (await bookingResponse.json()) as { startAt: string; endAt: string }
+  const expectedStartTime = timeFormatter.format(new Date(bookingPayload.startAt))
+  const expectedEndTime = timeFormatter.format(new Date(bookingPayload.endAt))
 
   const confirmation = guestPage.getByRole('status').filter({ hasText: 'Запись подтверждена' })
   await expect(confirmation).toContainText(meetingTypeName)
-  await expect(confirmation).toContainText(selectedTime)
+  await expect(confirmation).toContainText(expectedStartTime)
+  await expect(confirmation).toContainText(expectedEndTime)
 
   await ownerPage.reload()
   const booking = ownerPage.getByRole('table').getByRole('row').filter({ hasText: guestEmail })

@@ -149,7 +149,7 @@ const createBooking = async () => {
         throwOnError: true,
       }),
     )
-    bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${formatDate(booking.startAt)} в ${formatTime(booking.startAt)}.`
+    bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${formatDate(booking.startAt)} с ${formatTime(booking.startAt)} до ${formatTime(booking.endAt)}.`
     slots.value = slots.value.filter((slot) => slot.startAt !== booking.startAt)
     selectedSlot.value = undefined
     guestName.value = ''
