@@ -6,6 +6,7 @@ import {
   createBooking as createBookingRequest,
   listMeetingTypeSlots,
   listMeetingTypes,
+  type Booking,
   type MeetingType,
   type Slot,
 } from 'calendar-api-client'
@@ -42,7 +43,7 @@ const guestName = ref('')
 const guestEmail = ref('')
 const bookingError = ref('')
 const slotConflictError = ref('')
-const bookingConfirmation = ref('')
+const bookingConfirmation = ref<Booking>()
 const bookingLoading = ref(false)
 const idempotencyKey = ref('')
 
@@ -92,12 +93,34 @@ const slotDays = computed(() => {
     })
 })
 
-const availableDayKeys = computed(() => new Set(slotDays.value.map((day) => day.key)))
-const firstAvailableDate = computed(() => slotDays.value[0]?.date)
-const lastAvailableDate = computed(() => slotDays.value.at(-1)?.date)
 const selectedDateKey = computed(() => selectedDate.value?.toString())
+const selectedCalendarDate = computed(() =>
+  selectedDate.value
+    ? new CalendarDate(selectedDate.value.year, selectedDate.value.month, selectedDate.value.day)
+    : undefined,
+)
+const availableDayKeys = computed(() => new Set(slotDays.value.map((day) => day.key)))
+const calendarDayKeys = computed(() => {
+  const keys = new Set(availableDayKeys.value)
+  if (selectedDateKey.value) keys.add(selectedDateKey.value)
+  return keys
+})
+const calendarDates = computed(() => {
+  const dates = slotDays.value.map((day) => day.date)
+  if (selectedCalendarDate.value && !availableDayKeys.value.has(selectedDateKey.value ?? '')) {
+    dates.push(selectedCalendarDate.value)
+  }
+  return dates.sort((first, second) => first.toString().localeCompare(second.toString()))
+})
+const firstAvailableDate = computed(() => calendarDates.value[0])
+const lastAvailableDate = computed(() => calendarDates.value.at(-1))
 const selectedDay = computed(() => slotDays.value.find((day) => day.key === selectedDateKey.value))
 const selectedDaySlots = computed(() => selectedDay.value?.slots ?? [])
+const selectedDateLabel = computed(() =>
+  selectedDate.value
+    ? dateFormatter.format(selectedDate.value.toDate(OWNER_TIME_ZONE))
+    : 'Свободное время',
+)
 
 const formatDate = (value: string) => dateFormatter.format(new Date(value))
 const formatTime = (value: string) => timeFormatter.format(new Date(value))
@@ -134,7 +157,7 @@ const selectMeetingType = async (meetingType: MeetingType) => {
   selectedType.value = meetingType
   selectedDate.value = undefined
   selectedSlot.value = undefined
-  bookingConfirmation.value = ''
+  bookingConfirmation.value = undefined
   bookingError.value = ''
   slotConflictError.value = ''
   slotsError.value = ''
@@ -151,7 +174,7 @@ const selectMeetingType = async (meetingType: MeetingType) => {
   }
 }
 
-const isDateUnavailable = (date: DateValue) => !availableDayKeys.value.has(date.toString())
+const isDateUnavailable = (date: DateValue) => !calendarDayKeys.value.has(date.toString())
 
 const createBooking = async () => {
   if (!selectedType.value || !selectedSlot.value) return
@@ -172,14 +195,13 @@ const createBooking = async () => {
         throwOnError: true,
       }),
     )
-    bookingConfirmation.value = `Запись подтверждена: ${booking.meetingType.name}, ${formatDate(booking.startAt)} с ${formatTime(booking.startAt)} до ${formatTime(booking.endAt)}.`
+    bookingConfirmation.value = booking
     slotConflictError.value = ''
     slots.value = slots.value.filter((slot) => slot.startAt !== booking.startAt)
     selectedSlot.value = undefined
     guestName.value = ''
     guestEmail.value = ''
     idempotencyKey.value = ''
-    selectedDate.value = slotDays.value[0]?.date
   } catch (cause) {
     if (cause instanceof ApiError && cause.code === 'SLOT_UNAVAILABLE') {
       selectedSlot.value = undefined
@@ -311,7 +333,7 @@ onMounted(async () => {
           <div v-if="slotsLoading" class="loading-state" role="status">
             Загружаем свободные слоты…
           </div>
-          <Empty v-else-if="!slots.length" class="empty-panel">
+          <Empty v-else-if="!slots.length && !selectedDate" class="empty-panel">
             <EmptyHeader>
               <EmptyTitle>Свободного времени пока нет</EmptyTitle>
               <EmptyDescription
@@ -340,11 +362,7 @@ onMounted(async () => {
 
             <Card class="slots-card">
               <CardHeader>
-                <CardTitle>{{
-                  selectedDay
-                    ? dateFormatter.format(selectedDay.date.toDate(OWNER_TIME_ZONE))
-                    : 'Свободное время'
-                }}</CardTitle>
+                <CardTitle>{{ selectedDateLabel }}</CardTitle>
                 <CardDescription>Все слоты указаны по Москве.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -423,10 +441,40 @@ onMounted(async () => {
           </Card>
         </section>
 
-        <Alert v-if="bookingConfirmation" class="success-alert" role="status">
-          <CheckCircle2 :size="17" />
-          <AlertTitle>{{ bookingConfirmation }}</AlertTitle>
-        </Alert>
+        <Card
+          v-if="bookingConfirmation"
+          class="booking-confirmation"
+          role="status"
+          aria-live="polite"
+        >
+          <CardHeader class="booking-confirmation-header">
+            <div class="booking-confirmation-icon" aria-hidden="true">
+              <CheckCircle2 :size="18" />
+            </div>
+            <div>
+              <CardTitle>Запись подтверждена</CardTitle>
+              <CardDescription>Сверьте детали встречи перед закрытием страницы.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent class="booking-confirmation-details">
+            <div class="booking-confirmation-detail">
+              <span>Встреча</span>
+              <strong>{{ bookingConfirmation.meetingType.name }}</strong>
+            </div>
+            <div class="booking-confirmation-detail">
+              <span>Дата</span>
+              <strong>{{ formatDate(bookingConfirmation.startAt) }}</strong>
+            </div>
+            <div class="booking-confirmation-detail">
+              <span>Время</span>
+              <strong
+                >{{ formatTime(bookingConfirmation.startAt) }}–{{
+                  formatTime(bookingConfirmation.endAt)
+                }}</strong
+              >
+            </div>
+          </CardContent>
+        </Card>
       </template>
     </div>
   </section>

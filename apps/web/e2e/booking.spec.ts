@@ -64,6 +64,7 @@ test('владелец создаёт тип встречи, гость запи
   await expect(confirmation).toContainText(meetingTypeName)
   await expect(confirmation).toContainText(expectedStartTime)
   await expect(confirmation).toContainText(expectedEndTime)
+  await expect(availableDay).toHaveAttribute('data-selected', 'true')
 
   await ownerPage.reload()
   const booking = ownerPage.getByRole('table').getByRole('row').filter({ hasText: guestEmail })

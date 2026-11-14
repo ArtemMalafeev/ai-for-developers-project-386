@@ -154,6 +154,15 @@ describe('страница записи', () => {
     expect(screen.queryByText('Это время уже занято. Выберите другое свободное время')).toBeNull()
 
     await fireEvent.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
-    expect(await screen.findByText(/Запись подтверждена/)).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Запись подтверждена' })).toBeTruthy()
+    expect(screen.getByText('Встреча')).toBeTruthy()
+    expect(screen.getByText('Дата')).toBeTruthy()
+    expect(screen.getByText('Время')).toBeTruthy()
+    expect(screen.getByText('На этот день слотов нет')).toBeTruthy()
+
+    const selectedDay = document.querySelector(
+      '[data-slot="calendar-cell-trigger"][data-value="2026-11-09"]',
+    )
+    expect(selectedDay?.getAttribute('data-selected')).toBe('true')
   })
 })
