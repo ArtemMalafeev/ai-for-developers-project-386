@@ -70,12 +70,12 @@ import { RouterLink } from 'vue-router'
             <div class="role-card-content">
               <p class="role-label">Для владельца</p>
               <h3>Всё под контролем</h3>
-              <p>Создавайте типы встреч, настраивайте доступное время и просматривайте записи.</p>
+              <p>Создавайте типы встреч, задавайте их длительность и просматривайте записи.</p>
               <ul class="role-list">
                 <li>
                   <span class="list-marker" aria-hidden="true">✓</span>Типы встреч и длительность
                 </li>
-                <li><span class="list-marker" aria-hidden="true">✓</span>Гибкое расписание</li>
+                <li><span class="list-marker" aria-hidden="true">✓</span>Готовые рабочие часы</li>
                 <li><span class="list-marker" aria-hidden="true">✓</span>Список записавшихся</li>
               </ul>
             </div>
