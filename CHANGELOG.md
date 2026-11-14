@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/ArtemMalafeev/ai-for-developers-project-386/compare/ai-for-developers-project-386-v1.2.1...ai-for-developers-project-386-v1.2.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **apps-web:** сохранить дату и показать детали записи ([#12](https://github.com/ArtemMalafeev/ai-for-developers-project-386/issues/12)) ([37dfc48](https://github.com/ArtemMalafeev/ai-for-developers-project-386/commit/37dfc488304fbdb17bc299143ff090b066c56009))
+
 ## [1.2.1](https://github.com/ArtemMalafeev/ai-for-developers-project-386/compare/ai-for-developers-project-386-v1.2.0...ai-for-developers-project-386-v1.2.1) (2026-11-14)
 
 
