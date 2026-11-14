@@ -1,5 +1,5 @@
 {
-  ".": "1.2.1",
+  ".": "1.2.2",
   "apps/backend": "1.1.0",
   "apps/web": "1.1.1",
   "packages/contracts": "0.1.1",
