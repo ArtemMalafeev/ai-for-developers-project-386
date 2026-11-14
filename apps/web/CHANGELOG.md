@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/ArtemMalafeev/ai-for-developers-project-386/compare/apps-web-v1.1.1...apps-web-v1.1.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **apps-web:** сохранить дату и показать детали записи ([#12](https://github.com/ArtemMalafeev/ai-for-developers-project-386/issues/12)) ([37dfc48](https://github.com/ArtemMalafeev/ai-for-developers-project-386/commit/37dfc488304fbdb17bc299143ff090b066c56009))
+
 ## [1.1.1](https://github.com/ArtemMalafeev/ai-for-developers-project-386/compare/apps-web-v1.1.0...apps-web-v1.1.1) (2026-11-14)
 
 
