@@ -1,6 +1,6 @@
 {
   "name": "ai-for-developers-project-386",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "[![hexlet-check](https://github.com/ArtemMalafeev/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/ArtemMalafeev/ai-for-developers-project-386/actions)",
   "main": "index.js",
   "scripts": {
